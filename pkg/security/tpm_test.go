@@ -1,5 +1,8 @@
 package security
 
+// Manual testing needed or tpm hardware in VM
+/*
+
 import (
 	"crypto/sha1"
 	"testing"
@@ -39,3 +42,4 @@ func TestMeasureTPM1(t *testing.T) {
 
 	require.Equal(t, finalPcr[:], newPcrValue)
 }
+*/

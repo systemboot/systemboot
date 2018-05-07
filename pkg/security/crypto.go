@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 )
 
@@ -13,8 +14,8 @@ const (
 	pubKeyIdentifier string = "PUBLIC KEY"
 )
 
-func loadPublicKeyFromFile(publicKeyPath string) (*rsa.PublicKey, error) {
-	// Load pub key from x509 PEM file
+// LoadPublicKeyFromFile loads DER formatted RSA public key from file.
+func LoadPublicKeyFromFile(publicKeyPath string) (*rsa.PublicKey, error) {
 	x509PEM, err := ioutil.ReadFile(publicKeyPath)
 	if err != nil {
 		return nil, err
@@ -23,7 +24,7 @@ func loadPublicKeyFromFile(publicKeyPath string) (*rsa.PublicKey, error) {
 	// Parse x509 PEM file
 	block, _ := pem.Decode(x509PEM)
 	if block == nil || block.Type != pubKeyIdentifier {
-		return nil, err
+		return nil, errors.New("Can't decode PEM file")
 	}
 
 	// parse Public Key
@@ -42,22 +43,11 @@ func loadPublicKeyFromFile(publicKeyPath string) (*rsa.PublicKey, error) {
 
 // VerifyRsaSha256Pkcs1v15Signature verifies a PKCSv1.5 signature made by
 // a SHA-256 checksum. Public key must be a RSA key in PEM format.
-func VerifyRsaSha256Pkcs1v15Signature(publicKeyPath string, dataFilePath string, signatureFilePath string) error {
-	dataFile, err := ioutil.ReadFile(dataFilePath)
-	if err != nil {
-		return err
+func VerifyRsaSha256Pkcs1v15Signature(publicKey *rsa.PublicKey, data []byte, signature []byte) error {
+	if publicKey == nil {
+		return errors.New("Public key is nil")
 	}
 
-	signatureFile, err := ioutil.ReadFile(signatureFilePath)
-	if err != nil {
-		return err
-	}
-
-	hash := sha256.Sum256(dataFile)
-	pubKey, err := loadPublicKeyFromFile(publicKeyPath)
-	if pubKey == nil {
-		return err
-	}
-
-	return rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, hash[:], signatureFile)
+	hash := sha256.Sum256(data)
+	return rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hash[:], signature)
 }
