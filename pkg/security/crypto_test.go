@@ -16,30 +16,12 @@ const (
 )
 
 func TestLoadDERPublicKey(t *testing.T) {
-	publicKey, err := LoadPublicKeyFromFile(publicKeyDERFile)
-	require.NoError(t, err)
-
-	testData, err := ioutil.ReadFile(testDataFile)
-	require.NoError(t, err)
-
-	signatureGood, err := ioutil.ReadFile(signatureGoodFile)
-	require.NoError(t, err)
-
-	err = VerifyRsaSha256Pkcs1v15Signature(publicKey, testData, signatureGood)
+	_, err := LoadPublicKeyFromFile(publicKeyDERFile)
 	require.Error(t, err)
 }
 
 func TestLoadPEMPublicKey(t *testing.T) {
-	publicKey, err := LoadPublicKeyFromFile(publicKeyPEMFile)
-	require.NoError(t, err)
-
-	testData, err := ioutil.ReadFile(testDataFile)
-	require.NoError(t, err)
-
-	signatureGood, err := ioutil.ReadFile(signatureGoodFile)
-	require.NoError(t, err)
-
-	err = VerifyRsaSha256Pkcs1v15Signature(publicKey, testData, signatureGood)
+	_, err := LoadPublicKeyFromFile(publicKeyPEMFile)
 	require.NoError(t, err)
 }
 
