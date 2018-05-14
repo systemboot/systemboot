@@ -2,7 +2,6 @@ package security
 
 // Manual testing needed or tpm hardware in VM
 /*
-
 import (
 	"crypto/sha1"
 	"testing"
@@ -41,5 +40,15 @@ func TestMeasureTPM1(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, finalPcr[:], newPcrValue)
+}
+
+func TestOwnerClearTPM1(t *testing.T) {
+	err := OwnerClearTPM1("keins")
+	require.NoError(t, err)
+}
+
+func TestTakeOwnershipTPM1(t *testing.T) {
+	err := TakeOwnershipTPM1("", "")
+	require.NoError(t, err)
 }
 */
