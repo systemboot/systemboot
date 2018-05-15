@@ -5,3 +5,12 @@ go:
   - "1.9"
   - "1.10"
   - master
+
+before_install:
+  - go get -t -v ./...
+
+script:
+  - ./.travis/tests.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
