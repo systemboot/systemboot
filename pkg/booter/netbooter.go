@@ -17,6 +17,8 @@ type NetBooter struct {
 	OverrideURL string `json:"override_url,omitempty"`
 }
 
+// NewNetBooter parses a boot entry config and returns a Booter instance, or an
+// error if any
 func NewNetBooter(config []byte) (Booter, error) {
 	// The configuration format for a NetBooterDHCPv6 entry is a JSON with the
 	// following structure:
@@ -60,6 +62,8 @@ func NewNetBooter(config []byte) (Booter, error) {
 	return &nb, nil
 }
 
+// Boot will run the boot procedure. In the case of NetBooter, it will call the
+// `netboot` command
 func (nb *NetBooter) Boot() error {
 	bootcmd := []string{"netboot", "-d", "-userclass", "linuxboot"}
 	log.Printf("Executing command: %v", bootcmd)
@@ -72,6 +76,7 @@ func (nb *NetBooter) Boot() error {
 	return nil
 }
 
+// TypeName returns the name of the booter type
 func (nb *NetBooter) TypeName() string {
 	return nb.Type
 }
