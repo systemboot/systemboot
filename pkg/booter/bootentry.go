@@ -7,6 +7,8 @@ import (
 	"github.com/insomniacslk/systemboot/pkg/vpd"
 )
 
+// BootEntry represents a boot entry, with its name, configuration, and Booter
+// instance. It can map to existing key-value stores like VPD or EFI vars.
 type BootEntry struct {
 	Name   string
 	Config []byte
@@ -40,6 +42,8 @@ func GetBooterFor(entry BootEntry) Booter {
 	return booter
 }
 
+// GetBootEntries returns a list of BootEntry objecsts stored in the VPD
+// partition of the flash chip
 func GetBootEntries() []BootEntry {
 	var bootEntries []BootEntry
 	for idx := 0; idx < 9999; idx++ {
