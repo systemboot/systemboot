@@ -26,11 +26,11 @@ func GetBooterFor(entry BootEntry) Booter {
 		booter Booter
 		err    error
 	)
-	for _, booterParser := range supportedBooterParsers {
-		log.Printf("Trying booter: %+v", booterParser)
+	for idx, booterParser := range supportedBooterParsers {
+		log.Printf("Trying booter #%d", idx)
 		booter, err = booterParser(entry.Config)
 		if err != nil {
-			log.Printf("This config is not valid for booter %+v", booterParser)
+			log.Printf("This config is not valid for this booter (#%d)", idx)
 			continue
 		}
 		break
