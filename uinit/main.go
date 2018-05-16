@@ -20,10 +20,6 @@ var defaultBootsequence = [][]string{
 	[]string{"localboot"},
 }
 
-var supportedBooterParsers = []func([]byte) (booter.Booter, error){
-	booter.NewNetBooter,
-}
-
 func main() {
 	flag.Parse()
 
