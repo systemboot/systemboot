@@ -51,4 +51,14 @@ func TestTakeOwnershipTPM1(t *testing.T) {
 	err := TakeOwnershipTPM1("", "")
 	require.NoError(t, err)
 }
+
+func TestIsDeactivatedTPM1(t *testing.T) {
+	_, err := IsDeactivatedTPM1()
+	require.NoError(t, err)
+}
+
+func TestIsDisabledTPM1(t *testing.T) {
+	_, err := IsDisabledTPM1()
+	require.NoError(t, err)
+}
 */
