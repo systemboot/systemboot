@@ -2,6 +2,7 @@ package tpm
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -26,6 +27,9 @@ const (
 	// TpmEnabledState contains enabled state
 	TpmEnabledState = "/sys/class/tpm/tpm0/enabled"
 
+	// TpmTempDeactivatedState contains enabled state
+	TpmTempDeactivatedState = "/sys/class/tpm/tpm0/temp_deactivated"
+
 	tpm12      = "1.2"
 	tpm20      = "2.0"
 	specFilter = "TCG version: "
@@ -44,44 +48,51 @@ var (
 
 // TPM global struct containing runtime information
 type TPM struct {
-	device        io.ReadWriteCloser
-	specification string
-	owned         bool
-	active        bool
-	enabled       bool
+	device          io.ReadWriteCloser
+	specification   string
+	owned           bool
+	active          bool
+	enabled         bool
+	tempDeactivated bool
 }
 
 func init() {
 	err := NewTPM()
 	if err != nil {
-		//Die
+		fmt.Printf("Registering a new TPM instance threw an error: %s", err.Error())
 	}
 }
 
-func getInfo() (string, bool, bool, bool, error) {
+func getInfo() (string, bool, bool, bool, bool, error) {
 	var cap [256]byte
-	var owned [0]byte
-	var active [0]byte
-	var enabled [0]byte
+	var owned [1]byte
+	var active [1]byte
+	var enabled [1]byte
+	var tempDeactivated [1]byte
 
 	caps, err := os.Open(TpmCapabilities)
 	if err != nil {
-		return "", false, false, false, err
+		return "", false, false, false, false, err
 	}
 
-	ownedState, err := os.Open(TpmCapabilities)
+	ownedState, err := os.Open(TpmOwnershipState)
 	if err != nil {
-		return "", false, false, false, err
+		return "", false, false, false, false, err
 	}
 
-	activeState, err := os.Open(TpmCapabilities)
+	activeState, err := os.Open(TpmActivatedState)
 	if err != nil {
-		return "", false, false, false, err
+		return "", false, false, false, false, err
 	}
 
-	enabledState, err := os.Open(TpmCapabilities)
+	enabledState, err := os.Open(TpmEnabledState)
 	if err != nil {
-		return "", false, false, false, err
+		return "", false, false, false, false, err
+	}
+
+	tempDeactivatedState, err := os.Open(TpmTempDeactivatedState)
+	if err != nil {
+		return "", false, false, false, false, err
 	}
 
 	caps.Read(cap[:])
@@ -91,18 +102,21 @@ func getInfo() (string, bool, bool, bool, error) {
 	ownedState.Read(owned[:])
 	activeState.Read(active[:])
 	enabledState.Read(enabled[:])
+	tempDeactivatedState.Read(tempDeactivated[:])
 
 	caps.Close()
 	ownedState.Close()
 	activeState.Close()
 	enabledState.Close()
+	tempDeactivatedState.Close()
 
 	spec := string(specBytes[0])
 	ownedBool, _ := strconv.ParseBool(string(owned[:]))
 	activeBool, _ := strconv.ParseBool(string(active[:]))
 	enabledBool, _ := strconv.ParseBool(string(enabled[:]))
+	tempDeactivatedBool, _ := strconv.ParseBool(string(tempDeactivated[:]))
 
-	return spec, ownedBool, activeBool, enabledBool, nil
+	return spec, ownedBool, activeBool, enabledBool, tempDeactivatedBool, nil
 }
 
 // NewTPM gets a new TPM handle struct with
@@ -116,10 +130,13 @@ func NewTPM() error {
 	// No error checking for spec because of tpm 1.2
 	// capability command not being available in deacitvated
 	// or disabled state.
-	spec, owned, active, enabled, _ := getInfo()
+	spec, owned, active, enabled, tempDeactivated, err := getInfo()
 
-	tpmHandle = &TPM{device: rwc, specification: spec, owned: owned, active: active, enabled: enabled}
-	return nil
+	if err == nil {
+		tpmHandle = &TPM{device: rwc, specification: spec, owned: owned, active: active, enabled: enabled, tempDeactivated: tempDeactivated}
+	}
+
+	return err
 }
 
 // Close io fd
@@ -130,28 +147,32 @@ func Close() {
 // SetupTPM enabled, activates and takes
 // the ownership of a TPM if it is not in a good
 // state
-func SetupTPM() error {
-	var err error
-
+func SetupTPM() {
 	if tpmHandle.owned && tpmHandle.specification == tpm12 {
-		_, err = tpmHandle.ReadPubEKTPM1(wellKnownSecret)
+		_, err := tpmHandle.ReadPubEKTPM1(wellKnownSecret)
 		if err != nil {
 			ClearOwnership()
 		}
 	}
 
-	if !tpmHandle.owned {
+	if !tpmHandle.owned && tpmHandle.enabled {
 		err := TakeOwnership()
 		if err != nil {
 			//Die
 		}
 	}
 
-	if !tpmHandle.enabled || !tpmHandle.active {
+	if !tpmHandle.enabled || !tpmHandle.active || tpmHandle.tempDeactivated {
 		//utils.Die(true, "Please enable the TPM")
 	}
+}
 
-	return err
+func PrintInfo() {
+	fmt.Printf("TPM spec:                  %s\n", tpmHandle.specification)
+	fmt.Printf("TPM owned:                 %t\n", tpmHandle.owned)
+	fmt.Printf("TPM activated:             %t\n", tpmHandle.active)
+	fmt.Printf("TPM enabled:               %t\n", tpmHandle.enabled)
+	fmt.Printf("TPM temporary deactivated: %t\n", tpmHandle.tempDeactivated)
 }
 
 // Measure data into a PCR by index
