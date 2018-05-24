@@ -167,6 +167,7 @@ func SetupTPM() {
 	}
 }
 
+// PrintInfo shows tpm information
 func PrintInfo() {
 	fmt.Printf("TPM spec:                  %s\n", tpmHandle.specification)
 	fmt.Printf("TPM owned:                 %t\n", tpmHandle.owned)
