@@ -1,4 +1,4 @@
-package linux
+package rng
 
 import (
 	"io/ioutil"
@@ -45,13 +45,13 @@ func setAvailableTRNG() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	currentRNG = string(currentFileData[:])
+	currentRNG = string(currentFileData)
 
 	availableFileData, err := ioutil.ReadFile(hwRandomAvailableFile)
 	if err != nil {
 		return false, err
 	}
-	availableRNGs = strings.Split(string(availableFileData[:]), " ")
+	availableRNGs = strings.Split(string(availableFileData), " ")
 
 	for key, value := range trngList {
 		if key == currentRNG && value == 0 {
@@ -91,7 +91,8 @@ func UpdateLinuxRandomness() error {
 		return err
 	}
 
-	randomPoolSize, err := strconv.ParseUint(string(randomPoolSizeData), 10, 32)
+	formatted := strings.TrimSuffix(string(randomPoolSizeData), "\n")
+	randomPoolSize, err := strconv.ParseUint(formatted, 10, 32)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,8 @@ func UpdateLinuxRandomness() error {
 			return err
 		}
 
-		randomEntropyAvailable, err := strconv.ParseUint(string(randomEntropyAvailableData), 10, 32)
+		formatted := strings.TrimSuffix(string(randomEntropyAvailableData), "\n")
+		randomEntropyAvailable, err := strconv.ParseUint(formatted, 10, 32)
 		if err != nil {
 			return err
 		}
