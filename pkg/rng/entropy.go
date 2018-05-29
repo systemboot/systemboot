@@ -97,15 +97,19 @@ func UpdateLinuxRandomness() error {
 		return err
 	}
 
-	hwRng, err := os.Open(hwRandomDevice)
+	hwRng, err := os.OpenFile(hwRandomDevice, os.O_RDONLY, os.ModeDevice)
 	if err != nil {
 		return err
 	}
 
-	rng, err := os.Open(randomDevice)
+	defer hwRng.Close()
+
+	rng, err := os.OpenFile(randomDevice, os.O_APPEND|os.O_WRONLY, os.ModeDevice)
 	if err != nil {
 		return err
 	}
+
+	defer rng.Close()
 
 	for {
 		randomEntropyAvailableData, err := ioutil.ReadFile(randomEntropyAvailableFile)
