@@ -31,11 +31,11 @@ func TestTPM1NewTPM(t *testing.T) {
 		}
 		return io.ReadWriteCloser(fd), nil
 	}
-	TpmCapabilities = "tests/fake_caps"
-	TpmOwnershipState = "tests/fake_owned"
-	TpmActivatedState = "tests/fake_active"
-	TpmEnabledState = "tests/fake_enabled"
-	TpmTempDeactivatedState = "tests/fake_deactivated"
+	TpmCapabilities = "tests/fake_caps_tpm12"
+	TpmOwnershipState = "tests/fake_owned_1"
+	TpmActivatedState = "tests/fake_active_1"
+	TpmEnabledState = "tests/fake_enabled_1"
+	TpmTempDeactivatedState = "tests/fake_temp_deactivated_0"
 
 	tpm, err := NewTPM()
 	require.NoError(t, err)
