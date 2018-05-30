@@ -1,6 +1,7 @@
 package rng
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -89,8 +90,7 @@ func setAvailableTRNG() (bool, error) {
 		return false, nil
 	}
 
-	err = ioutil.WriteFile(HwRandomCurrentFile, []byte(rngs[0]), 0644)
-	if err != nil {
+	if err = ioutil.WriteFile(HwRandomCurrentFile, []byte(rngs[0]), 0644); err != nil {
 		return false, err
 	}
 
@@ -104,8 +104,11 @@ func setAvailableTRNG() (bool, error) {
 // go UpdateLinuxRandomness()
 func UpdateLinuxRandomness() error {
 	good, err := setAvailableTRNG()
-	if !good {
+	if err != nil {
 		return err
+	}
+	if !good {
+		return errors.New("Could not find a good TRNG")
 	}
 
 	randomPoolSizeData, err := ioutil.ReadFile(RandomPoolSizeFile)
