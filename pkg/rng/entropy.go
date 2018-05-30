@@ -29,7 +29,7 @@ var (
 	RandomEntropyAvailableFile = "/proc/sys/kernel/random/entropy_avail"
 	// EntropyFeedTime sets the loop time for seeding /dev/random by /dev/hwrng
 	// in seconds
-	EntropyFeedTime time.Duration = 1
+	EntropyFeedTime time.Duration = 2
 	// EntropyBlockSize sets the bytes to read per Read function call
 	EntropyBlockSize = 128
 	// EntropyThreshold is used to stop seeding at specific entropy level
@@ -128,6 +128,8 @@ func UpdateLinuxRandomness() error {
 		defer rng.Close()
 
 		for {
+			time.Sleep(EntropyFeedTime * time.Second)
+
 			randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
 			if err != nil {
 				// TODO hlt
@@ -152,8 +154,6 @@ func UpdateLinuxRandomness() error {
 			if err != nil || written != length {
 				// TODO hlt
 			}
-
-			time.Sleep(EntropyFeedTime * time.Second)
 		}
 	}()
 
