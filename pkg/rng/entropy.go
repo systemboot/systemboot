@@ -42,14 +42,14 @@ var (
 
 // Can be extended but keep in mind to priorize
 // more secure random sources like hw random over
-// timer, jitter based mechanisms. Zero is the highest
-// priority.
-// <rng-name> : <priority>
-var trngList = map[string]int{
-	"tpm-rng":        0,
-	"intel-rng":      1,
-	"amd-rng":        1,
-	"timeriomem-rng": 2,
+// timer, jitter based mechanisms. At the top of the array
+// is the highest priority.
+// <rng-name>
+var trngList = []string{
+	"tpm-rng",
+	"intel-rng",
+	"amd-rng",
+	"timeriomem-rng",
 }
 
 // Searches for available True Random Number Generator
@@ -59,14 +59,8 @@ func setAvailableTRNG() (bool, error) {
 	var (
 		currentRNG    string
 		availableRNGs []string
-		rngs          []string
+		selectedRNG   string
 	)
-
-	currentFileData, err := ioutil.ReadFile(HwRandomCurrentFile)
-	if err != nil {
-		return false, err
-	}
-	currentRNG = string(currentFileData)
 
 	availableFileData, err := ioutil.ReadFile(HwRandomAvailableFile)
 	if err != nil {
@@ -74,26 +68,31 @@ func setAvailableTRNG() (bool, error) {
 	}
 	availableRNGs = strings.Split(string(availableFileData), " ")
 
-	for key, value := range trngList {
-		if key == currentRNG && value == 0 {
-			return true, nil
-		}
-	}
-
-	for _, rng := range availableRNGs {
-		for key := range trngList {
-			if rng == key {
-				rngs = append(rngs, key)
+	for _, trng := range trngList {
+		for _, rng := range availableRNGs {
+			if trng == rng {
+				selectedRNG = trng
+				break
 			}
 		}
 	}
 
-	if len(rngs) <= 0 {
-		return false, nil
+	if selectedRNG == "" {
+		return false, errors.New("No TRNG found on platform")
 	}
 
-	if err = ioutil.WriteFile(HwRandomCurrentFile, []byte(rngs[0]), 0644); err != nil {
+	if err = ioutil.WriteFile(HwRandomCurrentFile, []byte(selectedRNG), 0644); err != nil {
 		return false, err
+	}
+
+	currentFileData, err := ioutil.ReadFile(HwRandomCurrentFile)
+	if err != nil {
+		return false, err
+	}
+	currentRNG = string(currentFileData)
+
+	if currentRNG != selectedRNG {
+		return false, errors.New("Couldn't select TRNG: " + currentRNG)
 	}
 
 	return true, nil
@@ -105,11 +104,9 @@ func setAvailableTRNG() (bool, error) {
 // Usage:
 // go UpdateLinuxRandomness()
 func UpdateLinuxRandomness() error {
-	good, err := setAvailableTRNG()
-	if err != nil {
+	if good, err := setAvailableTRNG(); err != nil {
 		return err
-	}
-	if !good {
+	} else if !good {
 		return errors.New("Could not find a good TRNG")
 	}
 
