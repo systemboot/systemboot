@@ -2,7 +2,6 @@ package rng
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -90,7 +89,10 @@ func setAvailableTRNG() (bool, error) {
 		return false, nil
 	}
 
-	ioutil.WriteFile(HwRandomCurrentFile, []byte(rngs[0]), 0644)
+	err = ioutil.WriteFile(HwRandomCurrentFile, []byte(rngs[0]), 0644)
+	if err != nil {
+		return false, err
+	}
 
 	return true, nil
 }
@@ -100,38 +102,33 @@ func setAvailableTRNG() (bool, error) {
 // the entropy pool size
 // Usage:
 // go UpdateLinuxRandomness()
-func UpdateLinuxRandomness() {
+func UpdateLinuxRandomness() error {
 	good, err := setAvailableTRNG()
 	if !good {
-		log.Fatalf("Can't set available TRNG: %s", err.Error())
-		return
+		return err
 	}
 
 	randomPoolSizeData, err := ioutil.ReadFile(RandomPoolSizeFile)
 	if err != nil {
-		log.Fatalf("Can't random poolsize data: %s", err.Error())
-		return
+		return err
 	}
 
 	formatted := strings.TrimSuffix(string(randomPoolSizeData), "\n")
 	randomPoolSize, err := strconv.ParseUint(formatted, 10, 32)
 	if err != nil {
-		log.Fatalf("Can't parse random poolsize: %s", err.Error())
-		return
+		return err
 	}
 
 	hwRng, err := os.OpenFile(HwRandomDevice, os.O_RDONLY, os.ModeDevice)
 	if err != nil {
-		log.Fatalf("Can't open /dev/hwrng: %s", err.Error())
-		return
+		return err
 	}
 
 	defer hwRng.Close()
 
 	rng, err := os.OpenFile(RandomDevice, os.O_APPEND|os.O_WRONLY, os.ModeDevice)
 	if err != nil {
-		log.Fatalf("Can't open /dev/random: %s", err.Error())
-		return
+		return err
 	}
 
 	defer rng.Close()
@@ -139,27 +136,23 @@ func UpdateLinuxRandomness() {
 	for {
 		randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
 		if err != nil {
-			log.Fatalf("Can't read available entropy: %s", err.Error())
-			return
+			return err
 		}
 
 		formatted := strings.TrimSuffix(string(randomEntropyAvailableData), "\n")
 		randomEntropyAvailable, err := strconv.ParseUint(formatted, 10, 32)
 		if err != nil {
-			log.Fatalf("Can't parse available entropy: %s", err.Error())
-			return
+			return err
 		}
 
 		randomBytesNeeded := randomPoolSize - randomEntropyAvailable
 		if randomBytesNeeded > 0 {
 			var random = make([]byte, randomBytesNeeded)
 			if _, err = hwRng.Read(random); err != nil {
-				log.Fatalf("Can't read random from /dev/hwrng: %s", err.Error())
-				return
+				return err
 			}
 			if _, err = rng.Write(random); err != nil {
-				log.Fatalf("Can't write random to /dev/random: %s", err.Error())
-				return
+				return err
 			}
 		}
 
