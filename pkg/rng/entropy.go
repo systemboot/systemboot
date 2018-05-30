@@ -25,13 +25,15 @@ var (
 	// HwRandomAvailableFile shows the current available
 	// HW random number generator
 	HwRandomAvailableFile = "/sys/class/misc/hw_random/rng_available"
-	// RandomPoolSizeFile returns the entropy poolsize
-	RandomPoolSizeFile = "/proc/sys/kernel/random/poolsize"
 	// RandomEntropyAvailableFile shows how much of the entropy poolsize is used
 	RandomEntropyAvailableFile = "/proc/sys/kernel/random/entropy_avail"
 	// EntropyFeedTime sets the loop time for seeding /dev/random by /dev/hwrng
 	// in seconds
-	EntropyFeedTime time.Duration = 10
+	EntropyFeedTime time.Duration = 1
+	// EntropyBlockSize sets the bytes to read per Read function call
+	EntropyBlockSize = 128
+	// EntropyThreshold is used to stop seeding at specific entropy level
+	EntropyThreshold uint64 = 3000
 	// RandomDevice is the linux random device
 	RandomDevice = "/dev/random"
 	// HwRandomDevice is the linux hw random device
@@ -111,54 +113,49 @@ func UpdateLinuxRandomness() error {
 		return errors.New("Could not find a good TRNG")
 	}
 
-	randomPoolSizeData, err := ioutil.ReadFile(RandomPoolSizeFile)
-	if err != nil {
-		return err
-	}
-
-	formatted := strings.TrimSuffix(string(randomPoolSizeData), "\n")
-	randomPoolSize, err := strconv.ParseUint(formatted, 10, 32)
-	if err != nil {
-		return err
-	}
-
 	hwRng, err := os.OpenFile(HwRandomDevice, os.O_RDONLY, os.ModeDevice)
 	if err != nil {
 		return err
 	}
-
-	defer hwRng.Close()
 
 	rng, err := os.OpenFile(RandomDevice, os.O_APPEND|os.O_WRONLY, os.ModeDevice)
 	if err != nil {
 		return err
 	}
 
-	defer rng.Close()
+	go func() {
+		defer hwRng.Close()
+		defer rng.Close()
 
-	for {
-		randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
-		if err != nil {
-			return err
-		}
-
-		formatted := strings.TrimSuffix(string(randomEntropyAvailableData), "\n")
-		randomEntropyAvailable, err := strconv.ParseUint(formatted, 10, 32)
-		if err != nil {
-			return err
-		}
-
-		randomBytesNeeded := randomPoolSize - randomEntropyAvailable
-		if randomBytesNeeded > 0 {
-			var random = make([]byte, randomBytesNeeded)
-			if _, err = hwRng.Read(random); err != nil {
-				return err
+		for {
+			randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
+			if err != nil {
+				// TODO hlt
 			}
-			if _, err = rng.Write(random); err != nil {
-				return err
-			}
-		}
 
-		time.Sleep(EntropyFeedTime * time.Second)
-	}
+			formatted := strings.TrimSuffix(string(randomEntropyAvailableData), "\n")
+			randomEntropyAvailable, err := strconv.ParseUint(formatted, 10, 32)
+			if err != nil {
+				// TODO hlt
+			}
+
+			if randomEntropyAvailable >= EntropyThreshold {
+				continue
+			}
+
+			var random = make([]byte, EntropyBlockSize)
+			length, err := hwRng.Read(random)
+			if err != nil {
+				// TODO hlt
+			}
+			written, err := rng.Write(random[:length])
+			if err != nil || written != length {
+				// TODO hlt
+			}
+
+			time.Sleep(EntropyFeedTime * time.Second)
+		}
+	}()
+
+	return nil
 }
