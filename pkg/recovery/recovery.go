@@ -1,7 +1,6 @@
 package recovery
 
-// Recoverer offers the ability to recover
-// from security violation or boot failure
+// Recoverer interface for recovering with different implementations
 type Recoverer interface {
-	Recover()
+	Recover() error
 }
