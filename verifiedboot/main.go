@@ -2,12 +2,30 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"log"
+	"os"
+	"path"
+	"syscall"
+
+	"github.com/insomniacslk/systemboot/pkg/booter"
+	"github.com/insomniacslk/systemboot/pkg/crypto"
+	"github.com/insomniacslk/systemboot/pkg/tpm"
 )
 
 const (
 	// Version of verified booter
 	Version = `0.1`
+	// LinuxPcrIndex for Linux measurements
+	LinuxPcrIndex = 7
+	// LinuxDevUUIDPath sysfs path
+	LinuxDevUUIDPath = "/dev/disk/by-uuid/"
+	// BaseMountPoint is the basic mountpoint Path
+	BaseMountPoint = "/mnt/"
+	// SignatureFileExt is the signature file extension of the FIT image
+	SignatureFileExt = ".sig"
+	// SignaturePublicKeyPath is the public key path for signature verifcation
+	SignaturePublicKeyPath = "/etc/security/public_key.pem"
 )
 
 var banner = `
@@ -44,17 +62,109 @@ var banner = `
 `
 
 var (
-	dryRun  = flag.Bool("dryrun", false, "Do everything in dry run mode")
-	doDebug = flag.Bool("d", false, "Print debug output")
+	doDebug      = flag.Bool("D", false, "Print debug output")
+	bootMode     = flag.String("b", "", "Set the boot mode (verified, measured, both)")
+	deviceUUID   = flag.String("d", "", "Block device identified by UUID which should be used")
+	fitFilePath  = flag.String("f", "", "FIT image file path on block device")
+	debug        func(string, ...interface{})
+	publicKey    []byte
+	tpmInterface tpm.TPM
 )
 
 func main() {
 	flag.Parse()
 	log.Print(banner)
 
-	debug := func(string, ...interface{}) {}
+	debug = func(string, ...interface{}) {}
 	if *doDebug {
 		debug = log.Printf
 	}
 
+	//TODO hw rng
+
+	// Initialize the TPM
+	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
+		tpmInterface, err := tpm.NewTPM()
+		if err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+
+		if err = tpmInterface.SetupTPM(); err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+	}
+
+	// Check if device by UUID exists
+	devicePath := LinuxDevUUIDPath + *deviceUUID
+	if _, err := os.Stat(devicePath); err != nil {
+		debug("Error")
+		//TODO Recoverer
+	}
+
+	// Check supported filesystems
+	filesystems, err := diskutils.GetSupportedFilesystems()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Mount device under base path
+	mountPath := path.Join(BaseMountPoint, *deviceUUID)
+	mountPoint, err := diskutils.Mount(devicePath, mountPath, filesystems)
+	if err != nil {
+		debug("Failed to mount %s on %s: %v", devicePath, mountPath, err)
+		//TODO Recoverer
+	}
+
+	// Check FIT image existence
+	fitImage := mountPath + *fitFilePath
+	if _, err = os.Stat(fitImage); err != nil {
+		debug("Error")
+		//TODO Recoverer
+	}
+
+	// Read fitImage into memory
+	fitImageData, err := ioutil.ReadFile(fitImage)
+	if err != nil {
+		debug("Error")
+		//TODO Recoverer
+	}
+
+	// Verify signature of FIT image on device
+	if *bootMode == booter.BootModeVerified || *bootMode == booter.BootModeBoth {
+		fitImageSignature := mountPath + *fitFilePath + SignatureFileExt
+		if _, err := os.Stat(fitImageSignature); err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+
+		// Read fit image signature into memory
+		fitImageSignatureData, err := ioutil.ReadFile(fitImageSignature)
+		if err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+
+		publicKey, err := crypto.LoadPublicKeyFromFile(SignaturePublicKeyPath)
+		if err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+
+		if err := crypto.VerifyRsaSha256Pkcs1v15Signature(publicKey, fitImageData, fitImageSignatureData); err != nil {
+			debug("Error")
+			//TODO Recoverer
+		}
+	}
+
+	// Measure FIT image into linux PCR
+	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
+		tpmInterface.Measure(LinuxPcrIndex, fitImageData)
+	}
+
+	// TODO Load FIT and Kexec
+
+	// Unmount Device
+	syscall.Unmount(mountPoint.Path, syscall.MNT_DETACH)
 }
