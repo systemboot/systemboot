@@ -6,8 +6,22 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/satori/go.uuid"
+)
+
+const (
+	// BootModeVerified enables verified boot mode
+	BootModeVerified = "verified"
+	// BootModeMeasured enables measured boot mode
+	BootModeMeasured = "measured"
+	// BootModeBoth enables verified and measured boot mode
+	BootModeBoth = "both"
+	// DebugActive enables debugging
+	DebugActive = "true"
+	// DebugInactive forcely disables debugging
+	DebugInactive = "false"
 )
 
 // VerifiedBooter implements the Booter interface for booting securely
@@ -58,17 +72,20 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 		return nil, fmt.Errorf("Wrong type for VerifiedBooter: %s", nb.Type)
 	}
 
-	if nb.BootMode != "measured" && nb.BootMode != "verified" && nb.BootMode != "both" {
+	if nb.BootMode != BootModeMeasured && nb.BootMode != BootModeVerified && nb.BootMode != BootModeBoth {
 		return nil, fmt.Errorf("False boot mode for VerifiedBooter: %s", nb.BootMode)
 	}
 
-	_, err := uuid.FromString(nb.DeviceUUID)
-	if err != nil {
+	if _, err := uuid.FromString(nb.DeviceUUID); err != nil {
 		return nil, fmt.Errorf("Not an UUID for VerifiedBooter: %s", nb.DeviceUUID)
 	}
 
-	if nb.FitFile == "" {
-		return nil, fmt.Errorf("Fit file path empty for VerifiedBooter")
+	if nb.FitFile == "" || !filepath.IsAbs(nb.FitFile) {
+		return nil, fmt.Errorf("Fit file path is incorrect for VerifiedBooter")
+	}
+
+	if nb.Debug != "" && nb.Debug != DebugActive && nb.Debug != DebugInactive {
+		return nil, fmt.Errorf("Debug value is incorrect for VerifiedBooter")
 	}
 
 	return &nb, nil
@@ -77,7 +94,12 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 // Boot will run the boot procedure. In the case of VerifiedBooter, it will
 // call the `verifiedboot` command
 func (nb *VerifiedBooter) Boot() error {
-	bootcmd := []string{"verifiedboot", "-d", "-userclass", "linuxboot"}
+	bootcmd := []string{"verifiedboot", "-b", nb.BootMode, "-d", nb.DeviceUUID, "-f", nb.FitFile}
+
+	if nb.Debug == "true" {
+		bootcmd = append(bootcmd, "-D")
+	}
+
 	log.Printf("Executing command: %v", bootcmd)
 	cmd := exec.Command(bootcmd[0], bootcmd[1:]...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr

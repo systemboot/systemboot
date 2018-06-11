@@ -57,5 +57,4 @@ func main() {
 		debug = log.Printf
 	}
 
-	debug("Interface")
 }
