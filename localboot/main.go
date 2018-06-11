@@ -5,6 +5,8 @@ import (
 	"log"
 	"path"
 	"syscall"
+
+	"github.com/insomniacslk/systemboot/pkg/diskutils"
 )
 
 // TODO backward compatibility for BIOS mode with partition type 0xee
@@ -29,14 +31,14 @@ func main() {
 	}
 
 	// Get all the available block devices
-	devices, err := GetBlockStats()
+	devices, err := diskutils.GetBlockStats()
 	if err != nil {
 		log.Fatal(err)
 	}
 	// print partition info
 	for _, dev := range devices {
 		log.Printf("Device: %+v", dev)
-		table, err := GetGPTTable(dev)
+		table, err := diskutils.GetGPTTable(dev)
 		if err != nil {
 			continue
 		}
