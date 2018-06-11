@@ -53,7 +53,7 @@ func main() {
 
 	// get a list of supported file systems for real devices (i.e. skip nodev)
 	debug("Getting list of supported filesystems")
-	filesystems, err := GetSupportedFilesystems()
+	filesystems, err := diskutils.GetSupportedFilesystems()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func main() {
 	// detect EFI system partitions
 	// TODO currently, this is not necessary, but will be once we have VPD.
 	debug("Searching for EFI system partitions")
-	esps, err := FilterEFISystemPartitions(devices)
+	esps, err := diskutils.FilterEFISystemPartitions(devices)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,11 +71,11 @@ func main() {
 	// try mounting all the available devices, with all the supported file
 	// systems
 	debug("trying to mount all the available block devices with all the supported file system types")
-	mounted := make([]Mountpoint, 0)
+	mounted := make([]diskutils.Mountpoint, 0)
 	for _, dev := range devices {
 		devname := path.Join("/dev", dev.Name)
 		mountpath := path.Join(*baseMountPoint, dev.Name)
-		if mountpoint, err := Mount(devname, mountpath, filesystems); err != nil {
+		if mountpoint, err := diskutils.Mount(devname, mountpath, filesystems); err != nil {
 			debug("Failed to mount %s on %s: %v", devname, mountpath, err)
 		} else {
 			mounted = append(mounted, *mountpoint)
