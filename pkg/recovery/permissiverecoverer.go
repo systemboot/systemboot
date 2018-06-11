@@ -2,7 +2,7 @@ package recovery
 
 import (
 	"log"
-	"os"
+	"os/exec"
 )
 
 const shell string = "rush"
@@ -14,18 +14,22 @@ type PermissiveRecoverer struct {
 
 // Recover sasd
 func (pr PermissiveRecoverer) Recover(message string) error {
-	var err = nil
 	if message != "" {
 		log.Panicf("%s\n", message)
 	}
 
 	if pr.Debug {
 		path, err := exec.LookPath(shell)
-		if err == nil {
-			cmd := exec.Command(path)
-			err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd := exec.Command(path)
+		err = cmd.Run()
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	return nil
 }

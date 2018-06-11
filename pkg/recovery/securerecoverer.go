@@ -20,15 +20,16 @@ type SecureRecoverer struct {
 
 // Recover by reboot or poweroff without or with sync
 func (sr SecureRecoverer) Recover(message string) error {
-	var err = nil
 	if sr.Sync {
 		for _, f := range []*os.File{
 			os.Stdout,
 			os.Stderr,
 		} {
-			err = f.Sync()
+			if err := f.Sync(); err != nil {
+				return err
+			}
 		}
-		err = syscall.Sync()
+		syscall.Sync()
 	}
 
 	if sr.Debug {
@@ -39,10 +40,14 @@ func (sr SecureRecoverer) Recover(message string) error {
 	}
 
 	if sr.Reboot {
-		err = syscall.Reboot(syscall.LINUX_REBOOT_CMD_RESTART)
+		if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_RESTART); err != nil {
+			return err
+		}
 	} else {
-		err = syscall.Reboot(syscall.LINUX_REBOOT_CMD_POWER_OFF)
+		if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_POWER_OFF); err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
