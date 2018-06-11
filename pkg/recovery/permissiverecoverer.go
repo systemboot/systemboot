@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"log"
+	"os"
 )
 
 const shell string = "rush"
@@ -19,9 +20,9 @@ func (pr PermissiveRecoverer) Recover(message string) error {
 	}
 
 	if pr.Debug {
-		path, err = exec.LookPath(shell)
+		path, err := exec.LookPath(shell)
 		if err == nil {
-			cmd := exec.Command(shell)
+			cmd := exec.Command(path)
 			err = cmd.Run()
 		}
 	}
