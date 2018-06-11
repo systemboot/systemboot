@@ -7,12 +7,14 @@ import (
 
 const shell string = "rush"
 
-// PermissiveRecoverer is a sad
+// PermissiveRecoverer properties
+// Debug: Enables recovery shell
 type PermissiveRecoverer struct {
 	Debug bool
 }
 
-// Recover sasd
+// Recover logs error message in panic mode.
+// Can jump into a shell for later debugging.
 func (pr PermissiveRecoverer) Recover(message string) error {
 	if message != "" {
 		log.Panicf("%s\n", message)
