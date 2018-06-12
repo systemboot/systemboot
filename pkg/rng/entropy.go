@@ -31,7 +31,7 @@ var (
 	RandomEntropyAvailableFile = "/proc/sys/kernel/random/entropy_avail"
 	// EntropyFeedTime sets the loop time for seeding /dev/random by /dev/hwrng
 	// in seconds
-	EntropyFeedTime time.Duration = 2
+	EntropyFeedTime = 2 * time.Second
 	// EntropyBlockSize sets the bytes to read per Read function call
 	EntropyBlockSize = 128
 	// EntropyThreshold is used to stop seeding at specific entropy level
@@ -42,6 +42,8 @@ var (
 	HwRandomDevice = "/dev/hwrng"
 )
 
+// trngList is a list of hw random number generator
+// names used by the Linux kernel.
 // Can be extended but keep in mind to priorize
 // more secure random sources like hw random over
 // timer, jitter based mechanisms. At the top of the array
@@ -54,10 +56,10 @@ var trngList = []string{
 	"timeriomem-rng",
 }
 
-// Searches for available True Random Number Generator
+// setAvailableTRNG searches for available True Random Number Generator
 // inside the kernel api and sets the most secure on if
 // available which seeds /dev/hwrng
-func setAvailableTRNG() (bool, error) {
+func setAvailableTRNG() error {
 	var (
 		currentRNG    string
 		availableRNGs []string
@@ -66,7 +68,7 @@ func setAvailableTRNG() (bool, error) {
 
 	availableFileData, err := ioutil.ReadFile(HwRandomAvailableFile)
 	if err != nil {
-		return false, err
+		return err
 	}
 	availableRNGs = strings.Split(string(availableFileData), " ")
 
@@ -80,36 +82,33 @@ func setAvailableTRNG() (bool, error) {
 	}
 
 	if selectedRNG == "" {
-		return false, errors.New("No TRNG found on platform")
+		return errors.New("No TRNG found on platform")
 	}
 
 	if err = ioutil.WriteFile(HwRandomCurrentFile, []byte(selectedRNG), 0644); err != nil {
-		return false, err
+		return err
 	}
 
+	// Check if the correct TRNG was successful written
 	currentFileData, err := ioutil.ReadFile(HwRandomCurrentFile)
 	if err != nil {
-		return false, err
+		return err
 	}
 	currentRNG = string(currentFileData)
 
 	if currentRNG != selectedRNG {
-		return false, errors.New("Couldn't select TRNG: " + currentRNG)
+		return errors.New("Couldn't select TRNG: " + currentRNG)
 	}
 
-	return true, nil
+	return nil
 }
 
 // UpdateLinuxRandomness seeds random data from
 // /dev/hwrng into /dev/random based on a timer and
 // the entropy pool size
-// Usage:
-// go UpdateLinuxRandomness()
 func UpdateLinuxRandomness(recoverer recovery.Recoverer) error {
-	if good, err := setAvailableTRNG(); err != nil {
+	if err := setAvailableTRNG(); err != nil {
 		return err
-	} else if !good {
-		return errors.New("Could not find a good TRNG")
 	}
 
 	hwRng, err := os.OpenFile(HwRandomDevice, os.O_RDONLY, os.ModeDevice)
@@ -127,7 +126,7 @@ func UpdateLinuxRandomness(recoverer recovery.Recoverer) error {
 		defer rng.Close()
 
 		for {
-			time.Sleep(EntropyFeedTime * time.Second)
+			time.Sleep(EntropyFeedTime)
 
 			randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
 			if err != nil {
@@ -149,8 +148,8 @@ func UpdateLinuxRandomness(recoverer recovery.Recoverer) error {
 			if err != nil {
 				recoverer.Recover("Can't open the hardware random device")
 			}
-			written, err := rng.Write(random[:length])
-			if err != nil || written != length {
+			_, err = rng.Write(random[:length])
+			if err != nil {
 				recoverer.Recover("Can't open the random device")
 			}
 		}
