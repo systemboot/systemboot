@@ -6,7 +6,7 @@ import (
 )
 
 // PermissiveRecoverer properties
-// Debug: Enables recovery shell
+// RecoveryCommand: unix command with absolute file path
 type PermissiveRecoverer struct {
 	RecoveryCommand string
 }

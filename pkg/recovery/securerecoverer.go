@@ -13,6 +13,7 @@ const DebugTimeout time.Duration = 10
 // SecureRecoverer properties
 // Reboot: does a reboot if true
 // Sync: sync file descriptors and devices
+// Debug: enables debug messages
 type SecureRecoverer struct {
 	Reboot bool
 	Sync   bool
