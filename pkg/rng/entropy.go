@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/insomniacslk/systemboot/pkg/recovery"
 )
 
 // The concept
@@ -103,7 +105,7 @@ func setAvailableTRNG() (bool, error) {
 // the entropy pool size
 // Usage:
 // go UpdateLinuxRandomness()
-func UpdateLinuxRandomness() error {
+func UpdateLinuxRandomness(recoverer recovery.Recoverer) error {
 	if good, err := setAvailableTRNG(); err != nil {
 		return err
 	} else if !good {
@@ -129,13 +131,13 @@ func UpdateLinuxRandomness() error {
 
 			randomEntropyAvailableData, err := ioutil.ReadFile(RandomEntropyAvailableFile)
 			if err != nil {
-				// TODO hlt
+				recoverer.Recover("Can't read entropy pool size")
 			}
 
 			formatted := strings.TrimSuffix(string(randomEntropyAvailableData), "\n")
 			randomEntropyAvailable, err := strconv.ParseUint(formatted, 10, 32)
 			if err != nil {
-				// TODO hlt
+				recoverer.Recover("Can't parse entropy pool size")
 			}
 
 			if randomEntropyAvailable >= EntropyThreshold {
@@ -145,11 +147,11 @@ func UpdateLinuxRandomness() error {
 			var random = make([]byte, EntropyBlockSize)
 			length, err := hwRng.Read(random)
 			if err != nil {
-				// TODO hlt
+				recoverer.Recover("Can't open the hardware random device")
 			}
 			written, err := rng.Write(random[:length])
 			if err != nil || written != length {
-				// TODO hlt
+				recoverer.Recover("Can't open the random device")
 			}
 		}
 	}()
