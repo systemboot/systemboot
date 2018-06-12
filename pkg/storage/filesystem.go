@@ -1,4 +1,4 @@
-package diskutils
+package storage
 
 import (
 	"bufio"
