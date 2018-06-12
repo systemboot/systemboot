@@ -5,30 +5,20 @@ import (
 	"os/exec"
 )
 
-const shell string = "rush"
-
 // PermissiveRecoverer properties
 // Debug: Enables recovery shell
 type PermissiveRecoverer struct {
-	Debug bool
+	RecoveryCommand string
 }
 
 // Recover logs error message in panic mode.
 // Can jump into a shell for later debugging.
 func (pr PermissiveRecoverer) Recover(message string) error {
-	if message != "" {
-		log.Panicf("%s\n", message)
-	}
+	log.Printf("%s\n", message)
 
-	if pr.Debug {
-		path, err := exec.LookPath(shell)
-		if err != nil {
-			return err
-		}
-
-		cmd := exec.Command(path)
-		err = cmd.Run()
-		if err != nil {
+	if pr.RecoveryCommand != "" {
+		cmd := exec.Command(pr.RecoveryCommand)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
