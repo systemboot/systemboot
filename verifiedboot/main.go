@@ -78,83 +78,77 @@ func main() {
 	flag.Parse()
 	log.Print(banner)
 
-	var recoverer recovery.Recoverer
+	var RecoveryHandler recovery.Recoverer
 	debug = func(string, ...interface{}) {}
 	if *doDebug {
 		debug = log.Printf
-		recoverer = recovery.SecureRecoverer{
-			Reboot: false,
-			Sync:   false,
-			Debug:  true,
-		}
-	} else {
-		recoverer = recovery.SecureRecoverer{
-			Reboot: true,
-			Sync:   false,
-			Debug:  false,
-		}
+	}
+
+	RecoveryHandler = recovery.SecureRecoverer{
+		Reboot: true,
+		Sync:   false,
+		Debug:  *doDebug,
 	}
 
 	// Initialize random seeding
-	err := rng.UpdateLinuxRandomness(recoverer)
-	if err != nil {
-		recoverer.Recover("Can't setup randomness seeder: " + err.Error())
+	if err := rng.UpdateLinuxRandomness(RecoveryHandler); err != nil {
+		RecoveryHandler.Recover("Can't setup randomness seeder: " + err.Error())
 	}
 
 	// Initialize the TPM
 	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
 		tpmInterface, err := tpm.NewTPM()
 		if err != nil {
-			recoverer.Recover("Can't setup TPM connection: " + err.Error())
+			RecoveryHandler.Recover("Can't setup TPM connection: " + err.Error())
 		}
 
 		if err = tpmInterface.SetupTPM(); err != nil {
-			recoverer.Recover("Can't setup TPM state machine: " + err.Error())
+			RecoveryHandler.Recover("Can't setup TPM state machine: " + err.Error())
 		}
 	}
 
 	// Check if device by UUID exists
-	devicePath := LinuxDevUUIDPath + *deviceUUID
-	if _, err = os.Stat(devicePath); err != nil {
-		recoverer.Recover("Can't find device by UUID: " + err.Error())
+	devicePath := path.Join(LinuxDevUUIDPath, *deviceUUID)
+	if _, err := os.Stat(devicePath); err != nil {
+		RecoveryHandler.Recover("Can't find device by UUID: " + err.Error())
 	}
 
 	// Check supported filesystems
 	filesystems, err := storage.GetSupportedFilesystems()
 	if err != nil {
-		recoverer.Recover("Can't read supported filesystems: " + err.Error())
+		RecoveryHandler.Recover("Can't read supported filesystems: " + err.Error())
 	}
 
 	// Mount device under base path
 	mountPath := path.Join(BaseMountPoint, *deviceUUID)
 	mountPoint, err := storage.Mount(devicePath, mountPath, filesystems)
 	if err != nil {
-		recoverer.Recover("Can't mount device " + devicePath + " under path " + mountPath + " because of error: " + err.Error())
+		RecoveryHandler.Recover("Can't mount device " + devicePath + " under path " + mountPath + " because of error: " + err.Error())
 	}
 
 	// Check FIT image existence and read it into memory
-	fitImage := mountPath + *fitFilePath
+	fitImage := path.Join(mountPath, *fitFilePath)
 	fitImageData, err := ioutil.ReadFile(fitImage)
 	if err != nil {
-		recoverer.Recover("Can't read FIT image by given path: " + err.Error())
+		RecoveryHandler.Recover("Can't read FIT image by given path: " + err.Error())
 	}
 
 	// Verify signature of FIT image on device
 	if *bootMode == booter.BootModeVerified || *bootMode == booter.BootModeBoth {
 		// Read fit image signature into memory
-		fitImageSignature := mountPath + *fitFilePath + SignatureFileExt
+		fitImageSignature := path.Join(mountPath, *fitFilePath, SignatureFileExt)
 		fitImageSignatureData, err := ioutil.ReadFile(fitImageSignature)
 		if err != nil {
-			recoverer.Recover("Can't read FIT image signature by path extension: " + err.Error())
+			RecoveryHandler.Recover("Can't read FIT image signature by path extension: " + err.Error())
 		}
 
 		publicKey, err := crypto.LoadPublicKeyFromFile(SignaturePublicKeyPath)
 		if err != nil {
-			recoverer.Recover("Can't load public key for signature verification: " + err.Error())
+			RecoveryHandler.Recover("Can't load public key for signature verification: " + err.Error())
 		}
 
 		if err := crypto.VerifyRsaSha256Pkcs1v15Signature(publicKey, fitImageData, fitImageSignatureData); err != nil {
-			recoverer.Recover("Can't verify FIT image signature: " + err.Error())
+			RecoveryHandler.Recover("Can't verify FIT image signature: " + err.Error())
 		}
 	}
 
@@ -162,7 +156,7 @@ func main() {
 	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
 		err := tpmInterface.Measure(LinuxPcrIndex, fitImageData)
 		if err != nil {
-			recoverer.Recover("Can't measure FIT image hash and extend it into the TPM: " + err.Error())
+			RecoveryHandler.Recover("Can't measure FIT image hash and extend it into the TPM: " + err.Error())
 		}
 	}
 
