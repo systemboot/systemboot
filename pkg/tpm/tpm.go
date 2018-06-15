@@ -78,9 +78,9 @@ type Info struct {
 	TemporarilyDeactivated bool
 }
 
-func formatBoolFromSysfs(data []byte) string {
-	formatString := string(data)
-	return strings.TrimSuffix(formatString, "\n")
+func bytesToBool(data []byte) (bool, error) {
+	s := strings.TrimSuffix(string(data), "\n")
+	return strconv.ParseBool(s)
 }
 
 // NewTPM gets a new TPM handle struct with
@@ -162,19 +162,19 @@ func getInfo() (*Info, error) {
 		}
 	}
 
-	owned, err := strconv.ParseBool(formatBoolFromSysfs(ownedBytes))
+	owned, err := bytesToBool(ownedBytes)
 	if err != nil {
 		return nil, err
 	}
-	active, err := strconv.ParseBool(formatBoolFromSysfs(activeBytes))
+	active, err := bytesToBool(activeBytes)
 	if err != nil {
 		return nil, err
 	}
-	enabled, err := strconv.ParseBool(formatBoolFromSysfs(enabledBytes))
+	enabled, err := bytesToBool(enabledBytes)
 	if err != nil {
 		return nil, err
 	}
-	tempDeactivated, err := strconv.ParseBool(formatBoolFromSysfs(tempDeactivatedBytes))
+	tempDeactivated, err := bytesToBool(tempDeactivatedBytes)
 	if err != nil {
 		return nil, err
 	}
