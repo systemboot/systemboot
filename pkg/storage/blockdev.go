@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,13 @@ import (
 	"strings"
 
 	"github.com/rekby/gpt"
+)
+
+var (
+	// LinuxMountsPath is the standard mountpoint list path
+	LinuxMountsPath = "/proc/mounts"
+	// LinuxMountsPathDelimiter is the mounts delimiter
+	LinuxMountsPathDelimiter = " "
 )
 
 // BlockDev maps a device name to a BlockStat structure for a given block device
@@ -189,4 +197,28 @@ func FilterEFISystemPartitions(devices []BlockDev) ([]BlockDev, error) {
 		}
 	}
 	return esps, nil
+}
+
+// GetMountpointByDevice gets the mountpoint by given
+// device name. Returns on first match
+func GetMountpointByDevice(devicePath string) (string, error) {
+	mountsPath, err := os.Open(LinuxMountsPath)
+	if err != nil {
+		return "", err
+	}
+
+	defer mountsPath.Close()
+	scanner := bufio.NewScanner(mountsPath)
+	scanner.Split(bufio.ScanLines)
+
+	var mountpoint string
+	for scanner.Scan() {
+		deviceInfo := strings.Split(scanner.Text(), LinuxMountsPathDelimiter)
+		if deviceInfo[0] == devicePath {
+			mountpoint = deviceInfo[1]
+			break
+		}
+	}
+
+	return mountpoint, nil
 }
