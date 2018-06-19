@@ -6,12 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFindMountPointNoError checks that there is no
-// error in parsong the test output.
-func TestFindMountPointNoError(t *testing.T) {
+// TestFindMountPointNotExists checks that non existent
+// entry is checked and nil returned
+func TestFindMountPointNotExists(t *testing.T) {
 	LinuxMountsPath = "tests/mounts"
-	_, err := GetMountpointByDevice("/dev/mapper/sys-old")
-	require.NoError(t, err)
+	mountpoint, _ := GetMountpointByDevice("/dev/mapper/sys-oldxxxxx")
+	require.Nil(t, mountpoint)
 }
 
 // TestFindMountPointValid check for valid output of
@@ -20,5 +20,5 @@ func TestFindMountPointValid(t *testing.T) {
 	LinuxMountsPath = "tests/mounts"
 	mountpoint, err := GetMountpointByDevice("/dev/mapper/sys-old")
 	require.NoError(t, err)
-	require.Equal(t, mountpoint, "/media/usb")
+	require.Equal(t, *mountpoint, "/media/usb")
 }

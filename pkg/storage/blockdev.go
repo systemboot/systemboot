@@ -17,8 +17,6 @@ import (
 var (
 	// LinuxMountsPath is the standard mountpoint list path
 	LinuxMountsPath = "/proc/mounts"
-	// LinuxMountsPathDelimiter is the mounts delimiter
-	LinuxMountsPathDelimiter = " "
 )
 
 // BlockDev maps a device name to a BlockStat structure for a given block device
@@ -201,24 +199,21 @@ func FilterEFISystemPartitions(devices []BlockDev) ([]BlockDev, error) {
 
 // GetMountpointByDevice gets the mountpoint by given
 // device name. Returns on first match
-func GetMountpointByDevice(devicePath string) (string, error) {
-	mountsPath, err := os.Open(LinuxMountsPath)
+func GetMountpointByDevice(devicePath string) (*string, error) {
+	file, err := os.Open(LinuxMountsPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	defer mountsPath.Close()
-	scanner := bufio.NewScanner(mountsPath)
-	scanner.Split(bufio.ScanLines)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
 
-	var mountpoint string
 	for scanner.Scan() {
-		deviceInfo := strings.Split(scanner.Text(), LinuxMountsPathDelimiter)
+		deviceInfo := strings.Fields(scanner.Text())
 		if deviceInfo[0] == devicePath {
-			mountpoint = deviceInfo[1]
-			break
+			return &deviceInfo[1], nil
 		}
 	}
 
-	return mountpoint, nil
+	return nil, nil
 }
