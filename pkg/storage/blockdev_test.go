@@ -10,8 +10,8 @@ import (
 // entry is checked and nil returned
 func TestFindMountPointNotExists(t *testing.T) {
 	LinuxMountsPath = "tests/mounts"
-	mountpoint, _ := GetMountpointByDevice("/dev/mapper/sys-oldxxxxx")
-	require.Nil(t, mountpoint)
+	_, err := GetMountpointByDevice("/dev/mapper/sys-oldxxxxxx")
+	require.Error(t, err)
 }
 
 // TestFindMountPointValid check for valid output of
