@@ -215,5 +215,5 @@ func GetMountpointByDevice(devicePath string) (*string, error) {
 		}
 	}
 
-	return nil, nil
+	return nil, errors.New("Mountpoint not found")
 }
