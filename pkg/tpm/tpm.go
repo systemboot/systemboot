@@ -64,6 +64,7 @@ type TPM interface {
 	ReadPCR(uint32) ([]byte, error)
 	ReadPubEK(ownerPassword string) ([]byte, error)
 	SealData(locality byte, pcrs []int, data []byte, srkPassword string) ([]byte, error)
+	ResealData(pcrInfo map[uint32][]byte, data []byte, srkPassword string) ([]byte, error)
 	UnsealData(sealed []byte, srkPassword string) ([]byte, error)
 	ResetLock(ownerPassword string) error
 }
