@@ -146,13 +146,13 @@ func (t *TPM1) SealData(locality byte, pcrs []int, data []byte, srkPassword stri
 }
 
 // ResealData seals data against a given pcrInfo map and srkPassword
-func (t *TPM1) ResealData(pcrInfo map[uint32][]byte, data []byte, srkPassword string) ([]byte, error) {
+func (t *TPM1) ResealData(locality byte, pcrInfo map[int][]byte, data []byte, srkPassword string) ([]byte, error) {
 	var srkAuth [20]byte
 	if srkPassword != "" {
 		srkAuth = sha1.Sum([]byte(srkPassword))
 	}
 
-	sealed, err := tspi.Reseal(t.device, pcrInfo, data, srkAuth[:])
+	sealed, err := tspi.Reseal(t.device, locality, pcrInfo, data, srkAuth[:])
 	if err != nil {
 		return nil, err
 	}
