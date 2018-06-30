@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ed25519"
 )
 
 const (
@@ -14,6 +15,10 @@ const (
 	publicKeyPEMFile string = "tests/public_key.pem"
 	// privateKeyPEMFile is a RSA public key in PEM format
 	privateKeyPEMFile string = "tests/private_key.pem"
+	// publicKeyPEMFile2 is a RSA public key in PEM format
+	publicKeyPEMFile2 string = "tests/public_key2.pem"
+	// privateKeyPEMFile2 is a RSA public key in PEM format
+	privateKeyPEMFile2 string = "tests/private_key2.pem"
 	// testDataFile which should be verified by the good signature
 	testDataFile string = "tests/data"
 	// signatureGoodFile is a good signature of testDataFile
@@ -42,18 +47,27 @@ func TestLoadPEMPrivateKey(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSignData(t *testing.T) {
+func TestLoadBadPEMPrivateKey(t *testing.T) {
+	_, err := LoadPrivateKeyFromFile(privateKeyPEMFile, []byte{})
+	require.Error(t, err)
+}
+
+func TestSignVerifyData(t *testing.T) {
 	privateKey, err := LoadPrivateKeyFromFile(privateKeyPEMFile, password)
+	require.NoError(t, err)
+
+	publicKey, err := LoadPublicKeyFromFile(publicKeyPEMFile)
 	require.NoError(t, err)
 
 	testData, err := ioutil.ReadFile(testDataFile)
 	require.NoError(t, err)
 
-	_, err = SignRsaSha256Pkcs1v15Signature(privateKey, testData)
-	require.NoError(t, err)
+	signature := ed25519.Sign(privateKey, testData)
+	verified := ed25519.Verify(publicKey, testData, signature)
+	require.Equal(t, true, verified)
 }
 
-func TestVerifyData(t *testing.T) {
+func TestGoodSignature(t *testing.T) {
 	publicKey, err := LoadPublicKeyFromFile(publicKeyPEMFile)
 	require.NoError(t, err)
 
@@ -63,8 +77,8 @@ func TestVerifyData(t *testing.T) {
 	signatureGood, err := ioutil.ReadFile(signatureGoodFile)
 	require.NoError(t, err)
 
-	err = VerifyRsaSha256Pkcs1v15Signature(publicKey, testData, signatureGood)
-	require.NoError(t, err)
+	verified := ed25519.Verify(publicKey, testData, signatureGood)
+	require.Equal(t, true, verified)
 }
 
 func TestBadSignature(t *testing.T) {
@@ -77,6 +91,16 @@ func TestBadSignature(t *testing.T) {
 	signatureBad, err := ioutil.ReadFile(signatureBadFile)
 	require.NoError(t, err)
 
-	err = VerifyRsaSha256Pkcs1v15Signature(publicKey, testData, signatureBad)
-	require.Error(t, err)
+	verified := ed25519.Verify(publicKey, testData, signatureBad)
+	require.Equal(t, false, verified)
+}
+
+func TestGenerateKeys(t *testing.T) {
+	err := GeneratED25519Key(password, privateKeyPEMFile2, publicKeyPEMFile2)
+	require.NoError(t, err)
+}
+
+func TestGenerateUnprotectedKeys(t *testing.T) {
+	err := GeneratED25519Key(nil, privateKeyPEMFile2, publicKeyPEMFile2)
+	require.NoError(t, err)
 }
