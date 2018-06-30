@@ -1,0 +1,23 @@
+{
+  "configs": [
+    {
+      "commandline": "quiet",
+      "dt": "dt",
+      "initrd": "initrd",
+      "kernel": "kernel",
+      "name": "test1"
+    },
+    {
+      "commandline": "root=/dev/mapper/sys-root ro root_trim=yes crypt_root=UUID=597ca453-ddb4-499b-8385-aa1383133249 keymap=de dolvm init=/lib/systemd/systemd net.ifnames=0 intel_iommu=igfx_off",
+      "initrd": "initrd",
+      "kernel": "kernel",
+      "name": "test2"
+    },
+		{
+      "dt": "dt",
+      "initrd": "initrdx",
+      "kernel": "kernel",
+      "name": "test3"
+    }
+  ]
+}
