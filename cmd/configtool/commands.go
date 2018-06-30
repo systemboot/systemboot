@@ -58,7 +58,7 @@ func PackBootConfiguration() error {
 		}
 	}
 
-	return bootconfig.Pack(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, *packSignPrivateKeyFile, []byte(*packSignPassphrase))
+	return bootconfig.Pack(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, packSignPrivateKeyFile, []byte(*packSignPassphrase))
 }
 
 // UnpackBootConfiguration unpacks a boot configuration file and returns the
@@ -68,7 +68,7 @@ func UnpackBootConfiguration() error {
 		bootconfig.DefaultTmpDir = *unpackDir
 	}
 
-	_, outputDir, err := bootconfig.Unpack(*unpackInputFilename, *unpackVerifyPublicKeyFile)
+	_, outputDir, err := bootconfig.Unpack(*unpackInputFilename, unpackVerifyPublicKeyFile)
 	if err != nil {
 		return err
 	}
