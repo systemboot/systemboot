@@ -32,9 +32,14 @@ func LoadPublicKeyFromFile(publicKeyPath string) ([]byte, error) {
 	}
 
 	// Parse x509 PEM file
-	block, _ := pem.Decode(x509PEM)
-	if block == nil || block.Type != PubKeyIdentifier {
-		return nil, errors.New("Can't decode PEM file")
+	var block *pem.Block
+	for {
+		block, _ = pem.Decode(x509PEM)
+		if block != nil && block.Type == PubKeyIdentifier {
+			break
+		} else if block == nil {
+			return nil, errors.New("Can't decode PEM file")
+		}
 	}
 
 	return block.Bytes, nil
@@ -48,9 +53,14 @@ func LoadPrivateKeyFromFile(privateKeyPath string, password []byte) ([]byte, err
 	}
 
 	// Parse x509 PEM file
-	block, _ := pem.Decode(x509PEM)
-	if block == nil || block.Type != PrivKeyIdentifier {
-		return nil, errors.New("Can't decode PEM file")
+	var block *pem.Block
+	for {
+		block, _ = pem.Decode(x509PEM)
+		if block != nil && block.Type == PrivKeyIdentifier {
+			break
+		} else if block == nil {
+			return nil, errors.New("Can't decode PEM file")
+		}
 	}
 
 	// Check for encrypted PEM format
@@ -83,7 +93,7 @@ func GeneratED25519Key(password []byte, privateKeyFilePath string, publicKeyFile
 	}
 
 	var privateKey []byte
-	if password != nil || len(password) < 1 {
+	if len(password) < 1 {
 		encrypted, err := x509.EncryptPEMBlock(rand.Reader, privBlock.Type, privBlock.Bytes, password, PEMCipher)
 		if err != nil {
 			return err
