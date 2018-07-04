@@ -34,11 +34,12 @@ func LoadPublicKeyFromFile(publicKeyPath string) ([]byte, error) {
 	// Parse x509 PEM file
 	var block *pem.Block
 	for {
-		block, _ = pem.Decode(x509PEM)
-		if block != nil && block.Type == PubKeyIdentifier {
-			break
-		} else if block == nil {
+		block, x509PEM = pem.Decode(x509PEM)
+		if block == nil {
 			return nil, errors.New("Can't decode PEM file")
+		}
+		if block.Type == PubKeyIdentifier {
+			break
 		}
 	}
 
@@ -55,11 +56,12 @@ func LoadPrivateKeyFromFile(privateKeyPath string, password []byte) ([]byte, err
 	// Parse x509 PEM file
 	var block *pem.Block
 	for {
-		block, _ = pem.Decode(x509PEM)
-		if block != nil && block.Type == PrivKeyIdentifier {
-			break
-		} else if block == nil {
+		block, x509PEM = pem.Decode(x509PEM)
+		if block == nil {
 			return nil, errors.New("Can't decode PEM file")
+		}
+		if block.Type == PrivKeyIdentifier {
+			break
 		}
 	}
 
