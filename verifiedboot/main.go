@@ -1,19 +1,20 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
-	"syscall"
+	"runtime"
 
-	"github.com/insomniacslk/systemboot/pkg/booter"
-	"github.com/insomniacslk/systemboot/pkg/crypto"
-	"github.com/insomniacslk/systemboot/pkg/recovery"
-	"github.com/insomniacslk/systemboot/pkg/rng"
-	"github.com/insomniacslk/systemboot/pkg/storage"
-	"github.com/insomniacslk/systemboot/pkg/tpm"
+	"github.com/systemboot/systemboot/pkg/bootconfig"
+	"github.com/systemboot/systemboot/pkg/recovery"
+	"github.com/systemboot/systemboot/pkg/rng"
+	"github.com/systemboot/systemboot/pkg/storage"
+	"github.com/systemboot/systemboot/pkg/tpm"
 )
 
 const (
@@ -25,11 +26,10 @@ const (
 	LinuxDevUUIDPath = "/dev/disk/by-uuid/"
 	// BaseMountPoint is the basic mountpoint Path
 	BaseMountPoint = "/mnt/"
-	// SignatureFileExt is the signature file extension of the FIT image
-	SignatureFileExt = ".sig"
-	// SignaturePublicKeyPath is the public key path for signature verifcation
-	SignaturePublicKeyPath = "/etc/security/public_key.pem"
 )
+
+// SignaturePublicKeyPath is the public key path for signature verifcation
+var SignaturePublicKeyPath = "/etc/security/public_key.pem"
 
 var banner = `
 
@@ -65,14 +65,56 @@ var banner = `
 `
 
 var (
-	doDebug      = flag.Bool("D", false, "Print debug output")
-	bootMode     = flag.String("b", "", "Set the boot mode (verified, measured, both)")
-	deviceUUID   = flag.String("d", "", "Block device identified by UUID which should be used")
-	fitFilePath  = flag.String("f", "", "FIT image file path on block device")
-	debug        func(string, ...interface{})
-	publicKey    []byte
-	tpmInterface tpm.TPM
+	doDebug            = flag.Bool("D", true, "Print debug output")
+	deviceUUID         = flag.String("d", "", "Block device identified by UUID which should be used")
+	bootConfigFilePath = flag.String("b", "", "Boot config image file path on block device")
+	bootConfigName     = flag.String("n", "", "Boot config name to use")
+	debug              func(string, ...interface{})
+	publicKey          []byte
+	tpmInterface       tpm.TPM
 )
+
+func kexec(kernelFilePath string, kernelCommandline string, initrdFilePath string, dtFilePath string) error {
+	var err error
+	var baseCmd string
+	switch runtime.GOARCH {
+	case "AMD64":
+		baseCmd, err = exec.LookPath("kexec-amd64")
+		if err != nil {
+			return err
+		}
+	case "ARM64":
+		baseCmd, err = exec.LookPath("kexec-arm64")
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("Platform for kexec not supported")
+	}
+
+	var loadCommands []string
+	loadCommands = append(loadCommands, "-l")
+	loadCommands = append(loadCommands, kernelFilePath)
+
+	if kernelCommandline != "" {
+		loadCommands = append(loadCommands, "--command-line="+kernelCommandline)
+	} else {
+		loadCommands = append(loadCommands, "--reuse-cmdline")
+	}
+
+	if initrdFilePath != "" {
+		loadCommands = append(loadCommands, "--initrd="+initrdFilePath)
+	}
+
+	cmdLoad := exec.Command(baseCmd, loadCommands...)
+	if err := cmdLoad.Run(); err != nil {
+		return err
+	}
+
+	// Execute into new kernel
+	cmdExec := exec.Command(baseCmd, "-e")
+	return cmdExec.Run()
+}
 
 func main() {
 	flag.Parse()
@@ -96,20 +138,18 @@ func main() {
 	}
 
 	// Initialize the TPM
-	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
-		tpmInterface, err := tpm.NewTPM()
-		if err != nil {
-			RecoveryHandler.Recover("Can't setup TPM connection: " + err.Error())
-		}
+	tpmInterface, err := tpm.NewTPM()
+	if err != nil {
+		RecoveryHandler.Recover("Can't setup TPM connection: " + err.Error())
+	}
 
-		if err = tpmInterface.SetupTPM(); err != nil {
-			RecoveryHandler.Recover("Can't setup TPM state machine: " + err.Error())
-		}
+	if err = tpmInterface.SetupTPM(); err != nil {
+		RecoveryHandler.Recover("Can't setup TPM state machine: " + err.Error())
 	}
 
 	// Check if device by UUID exists
 	devicePath := path.Join(LinuxDevUUIDPath, *deviceUUID)
-	if _, err := os.Stat(devicePath); err != nil {
+	if _, err = os.Stat(devicePath); err != nil {
 		RecoveryHandler.Recover("Can't find device by UUID: " + err.Error())
 	}
 
@@ -121,47 +161,35 @@ func main() {
 
 	// Mount device under base path
 	mountPath := path.Join(BaseMountPoint, *deviceUUID)
-	mountPoint, err := storage.Mount(devicePath, mountPath, filesystems)
+	mountpoint, err := storage.Mount(devicePath, mountPath, filesystems)
 	if err != nil {
 		RecoveryHandler.Recover("Can't mount device " + devicePath + " under path " + mountPath + " because of error: " + err.Error())
 	}
 
 	// Check FIT image existence and read it into memory
-	fitImage := path.Join(mountPath, *fitFilePath)
-	fitImageData, err := ioutil.ReadFile(fitImage)
+	bootConfigImage := path.Join(mountpoint.Path, *bootConfigFilePath)
+	bootConfigImageData, err := ioutil.ReadFile(bootConfigImage)
 	if err != nil {
-		RecoveryHandler.Recover("Can't read FIT image by given path: " + err.Error())
+		RecoveryHandler.Recover("Can't read boot config image by given path: " + err.Error())
 	}
 
-	// Verify signature of FIT image on device
-	if *bootMode == booter.BootModeVerified || *bootMode == booter.BootModeBoth {
-		// Read fit image signature into memory
-		fitImageSignature := path.Join(mountPath, *fitFilePath, SignatureFileExt)
-		fitImageSignatureData, err := ioutil.ReadFile(fitImageSignature)
-		if err != nil {
-			RecoveryHandler.Recover("Can't read FIT image signature by path extension: " + err.Error())
-		}
-
-		publicKey, err := crypto.LoadPublicKeyFromFile(SignaturePublicKeyPath)
-		if err != nil {
-			RecoveryHandler.Recover("Can't load public key for signature verification: " + err.Error())
-		}
-
-		if err := crypto.VerifyRsaSha256Pkcs1v15Signature(publicKey, fitImageData, fitImageSignatureData); err != nil {
-			RecoveryHandler.Recover("Can't verify FIT image signature: " + err.Error())
-		}
+	bc, artifacts, err := bootconfig.GetBootConfig(*bootConfigFilePath, &SignaturePublicKeyPath, *bootConfigName)
+	if err != nil {
+		RecoveryHandler.Recover("Can't unpack boot config image by given path: " + err.Error())
 	}
 
 	// Measure FIT image into linux PCR
-	if *bootMode == booter.BootModeMeasured || *bootMode == booter.BootModeBoth {
-		err := tpmInterface.Measure(LinuxPcrIndex, fitImageData)
-		if err != nil {
-			RecoveryHandler.Recover("Can't measure FIT image hash and extend it into the TPM: " + err.Error())
-		}
+	err = tpmInterface.Measure(LinuxPcrIndex, bootConfigImageData)
+	if err != nil {
+		RecoveryHandler.Recover("Can't measure boot config image hash and extend it into the TPM: " + err.Error())
 	}
 
-	// TODO Load FIT and Kexec
+	kernelFilePath := path.Join(*artifacts, bootconfig.DefaultKernelPath, bc.Kernel)
+	initrdFilePath := path.Join(*artifacts, bootconfig.DefaultInitrdPath, bc.Initrd)
+	dtFilePath := path.Join(*artifacts, bootconfig.DefaultDeviceTreePath, bc.DeviceTree)
 
-	// Unmount Device
-	syscall.Unmount(mountPoint.Path, syscall.MNT_DETACH)
+	err = kexec(kernelFilePath, bc.CommandLine, initrdFilePath, dtFilePath)
+	if err != nil {
+		RecoveryHandler.Recover("Can't kexec into new kernel: " + err.Error())
+	}
 }
