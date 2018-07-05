@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	"github.com/satori/go.uuid"
 )
 
 const (
@@ -25,7 +23,7 @@ const (
 // meachanisms.
 type VerifiedBooter struct {
 	Type       string `json:"type"`
-	DeviceUUID string `json:"device_uuid"`
+	DevicePath string `json:"device_path"`
 	BCFile     string `json:"bc_file"`
 	BCName     string `json:"bc_name"`
 }
@@ -36,19 +34,19 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 	// following structure:
 	// {
 	//     "type": "verifiedboot",
-	//     "device_uuid": "<uuid>",
+	//     "device_path": "<path>",
 	//     "bc_file": "<path>",
 	//     "bc_name": "<string>",
 	// }
 	//
 	// `type` is always set to "verifiedboot".
-	// `device_uuid` is the UUID of the block device which contains the fit_file.
+	// `device_path` is the path of the block device which contains the fit_file.
 	// `boot_config` is an absolute filepath containing a fit image.
 	//
 	// An example configuration is:
 	// {
 	//     "type": "verified",
-	//     "device_uuid": "597ca453-ddb4-499b-8385-aa1383133249",
+	//     "device_path": "/dev/sda1",
 	//     "boot_config": "/boot/fit.img"
 	// }
 	//
@@ -65,11 +63,11 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 		return nil, fmt.Errorf("Wrong type for VerifiedBooter: %s", nb.Type)
 	}
 
-	if _, err := uuid.FromString(nb.DeviceUUID); err != nil {
-		return nil, fmt.Errorf("Not an UUID for VerifiedBooter: %s", nb.DeviceUUID)
+	if nb.DevicePath == "" || !filepath.IsAbs(nb.DevicePath) {
+		return nil, fmt.Errorf("Device file path is incorrect for VerifiedBooter %s", nb.DevicePath)
 	}
 
-	if nb.BootConfig == "" || !filepath.IsAbs(nb.BootConfig) {
+	if nb.BCFile == "" || !filepath.IsAbs(nb.BCFile) {
 		return nil, fmt.Errorf("BootConfig file path is incorrect for VerifiedBooter")
 	}
 
@@ -79,7 +77,7 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 // Boot will run the boot procedure. In the case of VerifiedBooter, it will
 // call the `verifiedboot` command
 func (nb *VerifiedBooter) Boot() error {
-	bootcmd := []string{"verifiedboot", "-d", nb.DeviceUUID, "-b", nb.BootConfig}
+	bootcmd := []string{"verifiedboot", "-d", nb.DevicePath, "-b", nb.BCFile, "-n", nb.BCName}
 
 	log.Printf("Executing command: %v", bootcmd)
 	cmd := exec.Command(bootcmd[0], bootcmd[1:]...)

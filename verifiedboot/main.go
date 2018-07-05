@@ -19,17 +19,15 @@ import (
 
 const (
 	// Version of verified booter
-	Version = `0.1`
+	Version = `0.2`
 	// LinuxPcrIndex for Linux measurements
 	LinuxPcrIndex = 7
-	// LinuxDevUUIDPath sysfs path
-	LinuxDevUUIDPath = "/dev/disk/by-uuid/"
 	// BaseMountPoint is the basic mountpoint Path
-	BaseMountPoint = "/mnt/"
+	BaseMountPoint = "/mnt"
 )
 
 // SignaturePublicKeyPath is the public key path for signature verifcation
-var SignaturePublicKeyPath = "/etc/security/public_key.pem"
+var SignaturePublicKeyPath = "/etc/security/key.pem"
 
 var banner = `
 
@@ -66,7 +64,7 @@ var banner = `
 
 var (
 	doDebug            = flag.Bool("D", true, "Print debug output")
-	deviceUUID         = flag.String("d", "", "Block device identified by UUID which should be used")
+	devicePath         = flag.String("d", "", "Block device identified by path which should be used")
 	bootConfigFilePath = flag.String("b", "", "Boot config image file path on block device")
 	bootConfigName     = flag.String("n", "", "Boot config name to use")
 	debug              func(string, ...interface{})
@@ -77,19 +75,20 @@ var (
 func kexec(kernelFilePath string, kernelCommandline string, initrdFilePath string, dtFilePath string) error {
 	var err error
 	var baseCmd string
+	log.Println(runtime.GOARCH)
 	switch runtime.GOARCH {
-	case "AMD64":
+	case "amd64":
 		baseCmd, err = exec.LookPath("kexec-amd64")
 		if err != nil {
 			return err
 		}
-	case "ARM64":
+	case "arm64":
 		baseCmd, err = exec.LookPath("kexec-arm64")
 		if err != nil {
 			return err
 		}
 	default:
-		return errors.New("Platform for kexec not supported")
+		return errors.New("Platform has no kexec tool support")
 	}
 
 	var loadCommands []string
@@ -106,6 +105,7 @@ func kexec(kernelFilePath string, kernelCommandline string, initrdFilePath strin
 		loadCommands = append(loadCommands, "--initrd="+initrdFilePath)
 	}
 
+	// Load data into physical non reserved memory regions
 	cmdLoad := exec.Command(baseCmd, loadCommands...)
 	if err := cmdLoad.Run(); err != nil {
 		return err
@@ -128,13 +128,13 @@ func main() {
 
 	RecoveryHandler = recovery.SecureRecoverer{
 		Reboot: true,
-		Sync:   false,
+		Sync:   true,
 		Debug:  *doDebug,
 	}
 
 	// Initialize random seeding
 	if err := rng.UpdateLinuxRandomness(RecoveryHandler); err != nil {
-		RecoveryHandler.Recover("Can't setup randomness seeder: " + err.Error())
+		log.Printf("Couldn't initialize random seeder: %s\n", err.Error())
 	}
 
 	// Initialize the TPM
@@ -147,48 +147,44 @@ func main() {
 		RecoveryHandler.Recover("Can't setup TPM state machine: " + err.Error())
 	}
 
-	// Check if device by UUID exists
-	devicePath := path.Join(LinuxDevUUIDPath, *deviceUUID)
-	if _, err = os.Stat(devicePath); err != nil {
-		RecoveryHandler.Recover("Can't find device by UUID: " + err.Error())
-	}
-
 	// Check supported filesystems
 	filesystems, err := storage.GetSupportedFilesystems()
 	if err != nil {
 		RecoveryHandler.Recover("Can't read supported filesystems: " + err.Error())
 	}
 
+	os.MkdirAll(BaseMountPoint, 1755)
+
 	// Mount device under base path
-	mountPath := path.Join(BaseMountPoint, *deviceUUID)
-	mountpoint, err := storage.Mount(devicePath, mountPath, filesystems)
+	mountPath, err := ioutil.TempDir(BaseMountPoint, "")
 	if err != nil {
-		RecoveryHandler.Recover("Can't mount device " + devicePath + " under path " + mountPath + " because of error: " + err.Error())
+		RecoveryHandler.Recover("Can't create temporary mount path: " + err.Error())
 	}
 
-	// Check FIT image existence and read it into memory
-	bootConfigImage := path.Join(mountpoint.Path, *bootConfigFilePath)
-	bootConfigImageData, err := ioutil.ReadFile(bootConfigImage)
+	mountpoint, err := storage.Mount(*devicePath, mountPath, filesystems)
+	if err != nil {
+		RecoveryHandler.Recover("Can't mount device " + *devicePath + " under path " + mountPath + " because of error: " + err.Error())
+	}
+	bootConfigImagePath := path.Join(mountpoint.Path, *bootConfigFilePath)
+
+	// Check boot config image existence and read it into memory
+	bootConfigImageData, err := ioutil.ReadFile(bootConfigImagePath)
 	if err != nil {
 		RecoveryHandler.Recover("Can't read boot config image by given path: " + err.Error())
 	}
 
-	bc, artifacts, err := bootconfig.GetBootConfig(*bootConfigFilePath, &SignaturePublicKeyPath, *bootConfigName)
+	bc, _, err := bootconfig.GetBootConfig(bootConfigImagePath, &SignaturePublicKeyPath, *bootConfigName)
 	if err != nil {
 		RecoveryHandler.Recover("Can't unpack boot config image by given path: " + err.Error())
 	}
 
-	// Measure FIT image into linux PCR
+	// Measure boot config image into linux PCR
 	err = tpmInterface.Measure(LinuxPcrIndex, bootConfigImageData)
 	if err != nil {
 		RecoveryHandler.Recover("Can't measure boot config image hash and extend it into the TPM: " + err.Error())
 	}
 
-	kernelFilePath := path.Join(*artifacts, bootconfig.DefaultKernelPath, bc.Kernel)
-	initrdFilePath := path.Join(*artifacts, bootconfig.DefaultInitrdPath, bc.Initrd)
-	dtFilePath := path.Join(*artifacts, bootconfig.DefaultDeviceTreePath, bc.DeviceTree)
-
-	err = kexec(kernelFilePath, bc.CommandLine, initrdFilePath, dtFilePath)
+	err = kexec(bc.Kernel, bc.CommandLine, bc.Initrd, bc.DeviceTree)
 	if err != nil {
 		RecoveryHandler.Recover("Can't kexec into new kernel: " + err.Error())
 	}
