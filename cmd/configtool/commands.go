@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"path"
 
 	"github.com/systemboot/systemboot/pkg/bootconfig"
@@ -38,7 +39,7 @@ func PackBootConfiguration() error {
 	if *packKernelsDir != "" {
 		kernelFilePaths, err = getFilePathsByDir(*packKernelsDir)
 		if err != nil {
-			return err
+			log.Println("No kernels found")
 		}
 	}
 
@@ -46,7 +47,7 @@ func PackBootConfiguration() error {
 	if *packInitrdsDir != "" {
 		initrdFilePaths, err = getFilePathsByDir(*packInitrdsDir)
 		if err != nil {
-			return err
+			log.Println("No initrds found")
 		}
 	}
 
@@ -54,7 +55,7 @@ func PackBootConfiguration() error {
 	if *packDTsDir != "" {
 		dtFilePaths, err = getFilePathsByDir(*packDTsDir)
 		if err != nil {
-			return err
+			log.Println("No device trees found")
 		}
 	}
 

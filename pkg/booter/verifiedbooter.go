@@ -22,7 +22,6 @@ const (
 // into the operating system. This includes verified and measured boot
 // meachanisms.
 type VerifiedBooter struct {
-	Type       string `json:"type"`
 	DevicePath string `json:"device_path"`
 	BCFile     string `json:"bc_file"`
 	BCName     string `json:"bc_name"`
@@ -33,21 +32,20 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 	// The configuration format for a VerifiedBooter entry is a JSON with the
 	// following structure:
 	// {
-	//     "type": "verifiedboot",
 	//     "device_path": "<path>",
 	//     "bc_file": "<path>",
 	//     "bc_name": "<string>",
 	// }
 	//
 	// `type` is always set to "verifiedboot".
-	// `device_path` is the path of the block device which contains the fit_file.
+	// `device_path` is the path of the block device which contains the boot config file.
 	// `boot_config` is an absolute filepath containing a fit image.
 	//
 	// An example configuration is:
 	// {
-	//     "type": "verified",
 	//     "device_path": "/dev/sda1",
-	//     "boot_config": "/boot/fit.img"
+	//     "bc_file": "/boot/bc.file"
+	//     "bc_name": "config1"
 	// }
 	//
 	// Additional options may be added in the future.
@@ -58,17 +56,16 @@ func NewVerifiedBooter(config []byte) (Booter, error) {
 		return nil, err
 	}
 
-	log.Printf("VerifiedBooter: %+v", nb)
-	if nb.Type != "verifiedboot" {
-		return nil, fmt.Errorf("Wrong type for VerifiedBooter: %s", nb.Type)
-	}
-
 	if nb.DevicePath == "" || !filepath.IsAbs(nb.DevicePath) {
 		return nil, fmt.Errorf("Device file path is incorrect for VerifiedBooter %s", nb.DevicePath)
 	}
 
 	if nb.BCFile == "" || !filepath.IsAbs(nb.BCFile) {
 		return nil, fmt.Errorf("BootConfig file path is incorrect for VerifiedBooter")
+	}
+
+	if nb.BCName == "" {
+		return nil, fmt.Errorf("BootConfig name is incorrect")
 	}
 
 	return &nb, nil
@@ -91,5 +88,5 @@ func (nb *VerifiedBooter) Boot() error {
 
 // TypeName returns the name of the booter type
 func (nb *VerifiedBooter) TypeName() string {
-	return nb.Type
+	return "verifiedboot"
 }

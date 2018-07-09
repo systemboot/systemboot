@@ -21,9 +21,13 @@ const (
 	// Version of verified booter
 	Version = `0.2`
 	// LinuxPcrIndex for Linux measurements
-	LinuxPcrIndex = 7
+	LinuxPcrIndex = 9
 	// BaseMountPoint is the basic mountpoint Path
 	BaseMountPoint = "/mnt"
+	// FirstDTBPath is the first dtp path to check
+	FirstDTBPath = "/sys/firmware/fdt"
+	// SecondDTBPath is the second dtp path to check
+	SecondDTBPath = "/proc/device-tree"
 )
 
 // SignaturePublicKeyPath is the public key path for signature verifcation
@@ -75,7 +79,6 @@ var (
 func kexec(kernelFilePath string, kernelCommandline string, initrdFilePath string, dtFilePath string) error {
 	var err error
 	var baseCmd string
-	log.Println(runtime.GOARCH)
 	switch runtime.GOARCH {
 	case "amd64":
 		baseCmd, err = exec.LookPath("kexec-amd64")
@@ -103,6 +106,20 @@ func kexec(kernelFilePath string, kernelCommandline string, initrdFilePath strin
 
 	if initrdFilePath != "" {
 		loadCommands = append(loadCommands, "--initrd="+initrdFilePath)
+	}
+
+	if dtFilePath != "" {
+		loadCommands = append(loadCommands, "--dtb="+dtFilePath)
+	} else {
+		_, err := os.Stat(FirstDTBPath)
+		if err == nil {
+			loadCommands = append(loadCommands, "--dtb="+FirstDTBPath)
+		} else {
+			_, err := os.Stat(SecondDTBPath)
+			if err == nil {
+				loadCommands = append(loadCommands, "--dtb="+SecondDTBPath)
+			}
+		}
 	}
 
 	// Load data into physical non reserved memory regions

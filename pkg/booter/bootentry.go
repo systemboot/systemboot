@@ -51,23 +51,34 @@ func GetBooterFor(entry BootEntry) Booter {
 	return booter
 }
 
+func bootEntryExistsAndRemove(name string, entries []BootEntry) []BootEntry {
+	for i := 0; i < len(entries); i++ {
+		if name == entries[i].Name {
+			entries[i] = entries[len(entries)-1]
+			return entries[:len(entries)-1]
+		}
+	}
+	return entries
+}
+
 // GetBootEntries returns a list of BootEntry objects stored in the VPD
 // partition of the flash chip
+// Fallback via Boot9999->Boot0000 and overwrites for RO variable store.
 func GetBootEntries() []BootEntry {
 	var bootEntries []BootEntry
-	for idx := 0; idx < 9999; idx++ {
+	for idx := 9999; idx >= 0; idx-- {
 		key := fmt.Sprintf("Boot%04d", idx)
 		// try the RW entries first
 		value, err := Get(key, false)
 		if err == nil {
 			bootEntries = append(bootEntries, BootEntry{Name: key, Config: value})
-			// WARNING WARNING WARNING this means that read-write boot entries
-			// have priority over read-only ones
-			continue
 		}
-		// try the RO entries then
+
+		// try the RO entries first
 		value, err = Get(key, true)
 		if err == nil {
+			// Check for duplication
+			bootEntries = bootEntryExistsAndRemove(key, bootEntries)
 			bootEntries = append(bootEntries, BootEntry{Name: key, Config: value})
 		}
 	}
