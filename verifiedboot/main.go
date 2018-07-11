@@ -142,11 +142,8 @@ func main() {
 	if *doDebug {
 		debug = log.Printf
 	}
-
-	RecoveryHandler = recovery.SecureRecoverer{
-		Reboot: true,
-		Sync:   true,
-		Debug:  *doDebug,
+	RecoveryHandler = recovery.PermissiveRecoverer{
+		RecoveryCommand: "/bbin/rush",
 	}
 
 	// Initialize random seeding

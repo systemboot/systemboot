@@ -86,24 +86,10 @@ describe the boot setup.
 
 Set the boot device where the boot configuration file is located
 
-###### 1) Generate empty RO VPD file
-
-The size of the RO_VPD region can be found in the coreboot mainboard directory \*.fmd file.
+###### Add RO VPD entries to file
 
 ```bash
-dd if=/dev/zero of=ro_vpd.bin bs=1 count=<size of RO vpd region>
-```
-
-###### 2) Add RO VPD entries to file
-
-```bash
-vpd -f ro_vpd.bin -O -s "Boot0000"='{"device_path": "/dev/sda1", "bc_file": "/boot/bc.img", "bc_name": "test"}'
-```
-
-###### 3) Add newly generated RO VPD file to the coreboot RO_VPD region
-
-```bash
-cbfstool coreboot.rom write -r RO_VPD -f ro_vpd.bin
+vpd -f build/coreboot.rom -i RO_VPD -O -s "Boot0000"='{"device_path": "/dev/sda1", "bc_file": "/boot/bc.img", "bc_name": "test"}'
 ```
 
 ##### Set RW options inside the OS
@@ -201,7 +187,7 @@ Select the right architecture via GOARCH environment variable.
 Keep in mind to select the right kexec binary.
 
 ```bash
-GOARCH=arm64 ./u-root -build bb -files /sbin/kexec-arm64 -files /etc/security/key.pem -format cpio -o initramfs.cpio cmds/init path/to/systemboot/verifiedboot/dir path/to/systemboot/uinit/dir
+GOARCH=arm64 ./u-root -build bb -files "kexec-arm64:sbin/kexec-arm64" -files "public_key.pem:etc/security/key.pem" -format cpio -o initramfs.cpio cmds/init path/to/systemboot/verifiedboot/dir path/to/systemboot/uinit/dir
 ```
 
 ##### 7) Compress initramfs
@@ -237,15 +223,7 @@ make
 ##### 11) Add RO_VPD region to coreboot
 
 ```bash
-./cbfstool build/coreboot.rom read -r RO_VPD -f ro_vpd.bin
-```
-
-```bash
-./vpd -f ro_vpd.bin -O -s "Boot0000"='{"device_path": "/dev/sda1", "bc_file": "/boot/bc.img", "bc_name": "test"}'
-```
-
-```bash
-./cbfstool build/coreboot.rom write -r RO_VPD -f ro_vpd.bin
+./vpd -f build/coreboot.rom -O -i RO_VPD -s "Boot0000"='{"device_path": "/dev/sda1", "bc_file": "/boot/bc.img", "bc_name": "test"}'
 ```
 
 ## uinit
