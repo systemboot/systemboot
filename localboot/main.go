@@ -96,7 +96,7 @@ func main() {
 
 	// try to kexec into every boot config kernel until one succeeds
 	for _, cfg := range bootconfigs {
-		log.Printf("trying to boot %s", cfg.Kernel.Name())
+		log.Printf("trying to boot %s", cfg.KernelFilePath)
 		if *doDryRun {
 			// note: in dry-run, this loop brea at the first entry
 			// unconditionally
@@ -104,8 +104,7 @@ func main() {
 			break
 		} else {
 			if err := cfg.Boot(); err != nil {
-				log.Printf("Failed to boot kernel %s: %v", cfg.Kernel.Name(), err)
-				cfg.Close()
+				log.Printf("Failed to boot kernel %s: %v", cfg.KernelFilePath, err)
 			}
 		}
 	}
@@ -113,9 +112,6 @@ func main() {
 
 	// if we are here, booting failed, so let's clean things up by closing all
 	// open file descriptors and unmounting the devices that we mounted
-	for _, cfg := range bootconfigs {
-		cfg.Close()
-	}
 	for _, mountpoint := range mounted {
 		syscall.Unmount(mountpoint.Path, syscall.MNT_DETACH)
 	}

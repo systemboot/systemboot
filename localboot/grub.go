@@ -3,7 +3,6 @@ package main
 import (
 	"io/ioutil"
 	"log"
-	"os"
 	"path"
 	"strings"
 )
@@ -78,21 +77,11 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []BootConfig 
 					// TODO unquote everything, not just \$
 					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
 				}
-				fullpath := path.Join(basedir, kernel)
-				fd, err := os.Open(fullpath)
-				if err != nil {
-					debug("error opening kernel file %s: %v", fullpath, err)
-				}
-				cfg.Kernel = fd
+				cfg.KernelFilePath = path.Join(basedir, kernel)
 				cfg.Cmdline = cmdline
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
 				initrd := sline[1]
-				fullpath := path.Join(basedir, initrd)
-				fd, err := os.Open(fullpath)
-				if err != nil {
-					debug("error opening initrd file %s: %v", fullpath, err)
-				}
-				cfg.Initramfs = fd
+				cfg.InitrdFilePath = path.Join(basedir, initrd)
 			}
 		}
 	}

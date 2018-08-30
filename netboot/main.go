@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,7 +14,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/netboot"
-	"github.com/u-root/u-root/pkg/kexec"
+	"github.com/u-root/u-root/pkg/kexecbin"
 )
 
 var (
@@ -153,15 +152,8 @@ func main() {
 		debug("DHCPv6: saved boot file to %s", filename)
 		if !*dryRun {
 			log.Printf("DHCPv6: kexec'ing into %s", filename)
-			kernel, err := os.OpenFile(filename, os.O_RDONLY, 0)
-			if err != nil {
-				log.Fatalf("DHCPv6: cannot open file %s: %v", filename, err)
-			}
-			if err = kexec.FileLoad(kernel, nil /* ramfs */, "" /* cmdline */); err != nil {
-				log.Fatalf("DHCPv6: kexec.FileLoad failed: %v", err)
-			}
-			if err = kexec.Reboot(); err != nil {
-				log.Fatalf("DHCPv6: kexec.Reboot failed: %v", err)
+			if err = kexecbin.KexecBin(filename, "", "", ""); err != nil {
+				log.Fatalf("DHCPv6: kexecBin failed: %v", err)
 			}
 		}
 	}
