@@ -51,7 +51,10 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 		return nil, "", err
 	}
 	zipbytes := data
-	// Load the public key
+	// Load the public key and, if a valid one is specified, match the
+	// signature. The signature is appended to the ZIP file, and can be present
+	// or not. A ZIP file is still valid if arbitrary content is appended after
+	// its end.
 	if pubkeyfile != nil {
 		zipbytes = data[:len(data)-ed25519.SignatureSize]
 		pubkey, err := crypto.LoadPublicKeyFromFile(*pubkeyfile)
@@ -90,9 +93,10 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 	var manifest *Manifest
 	for _, f := range r.File {
 		destination := path.Join(tempDir, f.Name)
-		// NOTE I don't know if it's possible to have a zero-length file name in
-		// a zip file. However I am not checking for this case as I prefer this
-		// to blow up with a panic and highlight the unexpected malformed file.
+		if len(f.Name) == 0 {
+			log.Printf("Warning: skipping zero-length file name (flags: %d, mode: %s)", f.Flags, f.Mode())
+			continue
+		}
 		if f.Name[len(f.Name)-1] == '/' {
 			// it's a directory, create it
 			if err := os.MkdirAll(destination, os.ModeDir|os.FileMode(0700)); err != nil {
@@ -109,18 +113,21 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 				return nil, "", err
 			}
 			if f.Name == "manifest.json" {
+				// make sure it's not a duplicate manifest within the ZIP file
+				// and inform the user otherwise
+				if manifest != nil {
+					log.Printf("Warning: duplicate manifest.json found, the last found wins")
+				}
 				// parse the Manifest containing the boot configurations
 				manifest, err = NewManifest(buf)
 				if err != nil {
 					return nil, "", err
 				}
 			}
-			// FIXME how to get permissions stored in the zip file?
-			perm := os.FileMode(0644)
-			if err := ioutil.WriteFile(destination, buf, perm); err != nil {
+			if err := ioutil.WriteFile(destination, buf, f.Mode()); err != nil {
 				return nil, "", err
 			}
-			log.Printf("Extracted file %s (flags: %d)", f.Name, f.Flags)
+			log.Printf("Extracted file %s (flags: %d, mode: %s)", f.Name, f.Flags, f.Mode())
 		}
 	}
 	if manifest == nil {
