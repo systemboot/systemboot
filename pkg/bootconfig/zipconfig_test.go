@@ -61,6 +61,40 @@ func TestFromZip(t *testing.T) {
 	require.Equal(t, "console=ttyS0", bc.KernelArgs)
 }
 
+func TestFromZipWithSignature(t *testing.T) {
+	pubkey := "testdata/pubkey"
+	manifest, tempdir, err := FromZip("testdata/bootconfig_signed.zip", &pubkey)
+	defer func() {
+		if tempdir != "" {
+			if err := os.RemoveAll(tempdir); err != nil {
+				log.Printf("Cannot remove temp dir %s: %v", tempdir, err)
+			}
+		}
+	}()
+	require.NoError(t, err)
+	require.NotEqual(t, "", tempdir)
+	require.NotNil(t, manifest)
+	require.Equal(t, 1, manifest.Version)
+	require.Equal(t, 1, len(manifest.Configs))
+	bc := manifest.Configs[0]
+	require.Equal(t, "boot entry 0", bc.Name)
+	require.Equal(t, "/path/to/kernel", bc.Kernel)
+}
+
+func TestFromZipWithMissingSignature(t *testing.T) {
+	pubkey := "testdata/pubkey"
+	_, tempdir, err := FromZip("testdata/bootconfig.zip", &pubkey)
+	defer func() {
+		// called just in case FromZip does not return an error
+		if tempdir != "" {
+			if err := os.RemoveAll(tempdir); err != nil {
+				log.Printf("Cannot remove temp dir %s: %v", tempdir, err)
+			}
+		}
+	}()
+	require.Error(t, err)
+}
+
 func TestFromZipNoSuchFile(t *testing.T) {
 	_, _, err := FromZip("testdata/nonexisting_bootconfig.zip", nil)
 	require.Error(t, err)

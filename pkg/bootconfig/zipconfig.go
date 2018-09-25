@@ -75,6 +75,7 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 		if ok := ed25519.Verify(pubkey, zipbytes, signature); !ok {
 			return nil, "", fmt.Errorf("Invalid ed25519 signature for file %s", filename)
 		}
+		log.Printf("Signature is valid")
 	} else {
 		log.Printf("No public key specified, the ZIP file will be unpacked without verification")
 	}
