@@ -111,10 +111,10 @@ func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string
 	}
 	debug("Supported file systems: %v", filesystems)
 
-	log.Print("Looking for partition with GUID %s", guid)
+	log.Printf("Looking for partition with GUID %s", guid)
 	partitions, err := storage.PartitionsByGUID(devices, guid)
 	if err != nil || len(partitions) == 0 {
-		fmt.Errorf("Error looking up for partition with GUID %s", guid)
+		return fmt.Errorf("Error looking up for partition with GUID %s", guid)
 	}
 	log.Printf("Partitions with GUID %s: %+v", guid, partitions)
 	if len(partitions) > 1 {
