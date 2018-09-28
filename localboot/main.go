@@ -154,7 +154,7 @@ func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, guid string
 // The second parameter, `baseMountPoint`, is the directory where the mount
 // points for each device will be created.
 // The third parameter, `guid`, is the partition GUID to look for.
-// The third parameter, `dryrun`, will not boot the found configurations if set
+// The fourth parameter, `dryrun`, will not boot the found configurations if set
 // to true.
 func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string, dryrun bool) error {
 	debug("Getting list of supported filesystems")
