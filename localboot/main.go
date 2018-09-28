@@ -15,14 +15,14 @@ import (
 // TODO use a proper parser for grub config (see grub.go)
 
 var (
-	baseMountPoint = flag.String("m", "/mnt", "Base mount point where to mount partitions")
-	doDryRun       = flag.Bool("dryrun", false, "Do not actually kexec into the boot config")
-	doDebug        = flag.Bool("d", false, "Print debug output")
-	doGrub         = flag.Bool("grub", false, "Use GRUB mode, i.e. look for valid Grub/Grub2 configuration in default locations to boot a kernel. GRUB mode ignores -kernel/-initramfs/-cmdline")
-	kernelPath     = flag.String("kernel", "", "Specify the path of the kernel to execute. If using -grub, this argument is ignored")
-	initramfsPath  = flag.String("initramfs", "", "Specify the path of the initramfs to load. If using -grub, this argument is ignored")
-	kernelCmdline  = flag.String("cmdline", "", "Specify the kernel command line. If using -grub, this argument is ignored")
-	deviceGUID     = flag.String("guid", "", "GUID of the device where the kernel (and optionally initramfs) are located. Ignored if -grub is set or if -kernel is not specified")
+	flagBaseMountPoint = flag.String("m", "/mnt", "Base mount point where to mount partitions")
+	flagDryRun         = flag.Bool("dryrun", false, "Do not actually kexec into the boot config")
+	flagDebug          = flag.Bool("d", false, "Print debug output")
+	flagGrubMode       = flag.Bool("grub", false, "Use GRUB mode, i.e. look for valid Grub/Grub2 configuration in default locations to boot a kernel. GRUB mode ignores -kernel/-initramfs/-cmdline")
+	flagKernelPath     = flag.String("kernel", "", "Specify the path of the kernel to execute. If using -grub, this argument is ignored")
+	flagInitramfsPath  = flag.String("initramfs", "", "Specify the path of the initramfs to load. If using -grub, this argument is ignored")
+	flagKernelCmdline  = flag.String("cmdline", "", "Specify the kernel command line. If using -grub, this argument is ignored")
+	flagDeviceGUID     = flag.String("guid", "", "GUID of the device where the kernel (and optionally initramfs) are located. Ignored if -grub is set or if -kernel is not specified")
 )
 
 var debug = func(string, ...interface{}) {}
@@ -34,9 +34,11 @@ var debug = func(string, ...interface{}) {}
 // * build a list of valid boot configurations from the found GRUB configuration files
 // * try to boot every valid boot configuration until one succeeds
 //
-// The first parameter, `mountedDevices` is a list of storage.Mountpoint
-// representing a mounted storage device.
-// The second parameter, `dryrun`, will not boot the found configurations if set
+// The first parameter, `devices` is a list of storage.BlockDev . The function
+// will look for bootable configurations on these devices
+// The second parameter, `baseMountPoint`, is the directory where the mount
+// points for each device will be created.
+// The third parameter, `dryrun`, will not boot the found configurations if set
 // to true.
 func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, dryrun bool) error {
 	// get a list of supported file systems for real devices (i.e. skip nodev)
@@ -61,6 +63,12 @@ func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, dryrun bool
 		}
 	}
 	log.Printf("mounted: %+v", mounted)
+	defer func() {
+		// clean up
+		for _, mountpoint := range mounted {
+			syscall.Unmount(mountpoint.Path, syscall.MNT_DETACH)
+		}
+	}()
 
 	// search for a valid grub config and extracts the boot configuration
 	bootconfigs := make([]BootConfig, 0)
@@ -71,26 +79,28 @@ func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, dryrun bool
 	for _, cfg := range bootconfigs {
 		debug("%+v", cfg)
 	}
+	if len(bootconfigs) == 0 {
+		return fmt.Errorf("No boot configuration found")
+	}
+
+	if dryrun {
+		cfg := bootconfigs[0]
+		debug("Dry-run mode: will not boot the found configuration")
+		debug("Boot configuration: %+v", cfg)
+		return nil
+	}
 
 	// try to kexec into every boot config kernel until one succeeds
 	for _, cfg := range bootconfigs {
 		debug("Trying boot configuration %+v", cfg)
-		if dryrun {
-			// note: in dry-run mode this loop breaks at the first entry
-			log.Printf("Dry-run, will not actually boot")
-			break
-		} else {
-			if err := cfg.Boot(); err != nil {
-				log.Printf("Failed to boot kernel %s: %v", cfg.Kernel.Name(), err)
-				cfg.Close()
-			}
+		if err := cfg.Boot(); err != nil {
+			log.Printf("Failed to boot kernel %s: %v", cfg.Kernel.Name(), err)
+			cfg.Close()
 		}
 	}
+	// if we reach this point, no boot configuration succeeded
 	log.Print("No boot configuration succeeded")
-	// clean up
-	for _, mountpoint := range mounted {
-		syscall.Unmount(mountpoint.Path, syscall.MNT_DETACH)
-	}
+
 	return nil
 }
 
@@ -99,10 +109,13 @@ func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, dryrun bool
 // * look for the kernel and initramfs in the provided locations
 // * boot the kernel with the provided command line
 //
-// The first parameter, `devices`, is a list of `storage.BlockDev` objects to
-// look for the given GUID. The second parameter, `guid`, is the partition GUID
-// to look for. The third, `dryrun`, will not actually boot the found
-// configuration if set to true.
+// The first parameter, `devices` is a list of storage.BlockDev . The function
+// will look for bootable configurations on these devices
+// The second parameter, `baseMountPoint`, is the directory where the mount
+// points for each device will be created.
+// The third parameter, `guid`, is the partition GUID to look for.
+// The third parameter, `dryrun`, will not boot the found configurations if set
+// to true.
 func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string, dryrun bool) error {
 	debug("Getting list of supported filesystems")
 	filesystems, err := storage.GetSupportedFilesystems()
@@ -126,8 +139,8 @@ func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string
 	if _, err := storage.Mount(devname, mountpath, filesystems); err != nil {
 		return fmt.Errorf("Cannot mount %s on %s: %v", dev.Name, mountpath, err)
 	}
-	fullKernelPath := path.Join(mountpath, *kernelPath)
-	fullInitramfsPath := path.Join(mountpath, *initramfsPath)
+	fullKernelPath := path.Join(mountpath, *flagKernelPath)
+	fullInitramfsPath := path.Join(mountpath, *flagInitramfsPath)
 	kernelFD, err := os.Open(fullKernelPath)
 	if err != nil {
 		return fmt.Errorf("Cannot open kernel %s: %v", fullKernelPath, err)
@@ -139,7 +152,7 @@ func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string
 	cfg := BootConfig{
 		Kernel:    kernelFD,
 		Initramfs: initramfsFD,
-		Cmdline:   *kernelCmdline,
+		Cmdline:   *flagKernelCmdline,
 	}
 	debug("Trying boot configuration %+v", cfg)
 	if dryrun {
@@ -155,10 +168,10 @@ func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string
 
 func main() {
 	flag.Parse()
-	if *doGrub && *kernelPath != "" {
+	if *flagGrubMode && *flagKernelPath != "" {
 		log.Fatal("Options -grub and -kernel are mutually exclusive")
 	}
-	if *doDebug {
+	if *flagDebug {
 		debug = log.Printf
 	}
 
@@ -168,7 +181,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// print partition info
-	if *doDebug {
+	if *flagDebug {
 		for _, dev := range devices {
 			log.Printf("Device: %+v", dev)
 			table, err := storage.GetGPTTable(dev)
@@ -187,12 +200,12 @@ func main() {
 
 	// TODO boot from EFI system partitions. See storage.FilterEFISystemPartitions
 
-	if *doGrub {
-		if err := BootGrubMode(devices, *baseMountPoint, *doDryRun); err != nil {
+	if *flagGrubMode {
+		if err := BootGrubMode(devices, *flagBaseMountPoint, *flagDryRun); err != nil {
 			log.Fatal(err)
 		}
-	} else if *kernelPath != "" {
-		if err := BootPathMode(devices, *baseMountPoint, *deviceGUID, *doDryRun); err != nil {
+	} else if *flagKernelPath != "" {
+		if err := BootPathMode(devices, *flagBaseMountPoint, *flagDeviceGUID, *flagDryRun); err != nil {
 			log.Fatal(err)
 		}
 	} else {
