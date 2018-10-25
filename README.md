@@ -46,7 +46,7 @@ The `uinit` program just wraps `netboot` and `localboot` in a forever-loop logic
 
 ## How to build systemboot
 
-* Install a recent version of Go, we recommend 1.10 or later
+* Install Go 1.11
 * make sure that your PATH points appropriately to wherever Go stores the
   go-get'ed executables
 * Then build it with the `u-root` ramfs builder using the following commands:
