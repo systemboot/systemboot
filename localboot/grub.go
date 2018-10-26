@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-    "github.com/systemboot/systemboot/pkg/bootconfig"
+	"github.com/systemboot/systemboot/pkg/bootconfig"
 )
 
 // List of paths where to look for grub config files. Grub2Paths will look for
@@ -79,7 +79,7 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 					// TODO unquote everything, not just \$
 					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
 				}
-                cfg.Kernel = path.Join(basedir, kernel)
+				cfg.Kernel = path.Join(basedir, kernel)
 				cfg.KernelArgs = cmdline
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
 				initrd := sline[1]

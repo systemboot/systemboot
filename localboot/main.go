@@ -8,8 +8,8 @@ import (
 	"path"
 	"syscall"
 
-	"github.com/systemboot/systemboot/pkg/storage"
 	"github.com/systemboot/systemboot/pkg/bootconfig"
+	"github.com/systemboot/systemboot/pkg/storage"
 )
 
 // TODO backward compatibility for BIOS mode with partition type 0xee
@@ -172,9 +172,9 @@ func BootPathMode(devices []storage.BlockDev, baseMountpoint string, guid string
 	fullKernelPath := path.Join(mount.Path, *flagKernelPath)
 	fullInitramfsPath := path.Join(mount.Path, *flagInitramfsPath)
 	cfg := bootconfig.BootConfig{
-		Kernel:    fullKernelPath,
-		Initramfs: fullInitramfsPath,
-		KernelArgs:   *flagKernelCmdline,
+		Kernel:     fullKernelPath,
+		Initramfs:  fullInitramfsPath,
+		KernelArgs: *flagKernelCmdline,
 	}
 	debug("Trying boot configuration %+v", cfg)
 	if dryrun {
