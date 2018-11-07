@@ -15,6 +15,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/netboot"
+	"github.com/systemboot/systemboot/pkg/crypto"
 	"github.com/u-root/u-root/pkg/kexec"
 )
 
@@ -98,6 +99,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("DHCPv6: failed to extract network configuration for %s: %v", *ifname, err)
 			}
+
 			debug("DHCPv6: network configuration: %+v", netconf)
 			if !*dryRun {
 				// Set up IP addresses
@@ -135,6 +137,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("DHCPv6: cannot read boot file from the network: %v", err)
 		}
+		crypto.TryMeasureData(crypto.BootConfig, body, &bootfile)
+
 		u, err := url.Parse(bootfile)
 		if err != nil {
 			log.Fatalf("DHCPv6: cannot parse URL %s: %v", bootfile, err)
