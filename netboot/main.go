@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,9 +16,9 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
+	"github.com/insomniacslk/dhcp/interfaces"
 	"github.com/insomniacslk/dhcp/netboot"
 	"github.com/u-root/u-root/pkg/kexec"
-	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -65,33 +66,30 @@ func main() {
 		log.Fatal("At least one of DHCPv6 and DHCPv4 is required")
 	}
 
-	iflist := []string{}
+	iflist := []net.Interface{}
 	if *ifname != "" {
-		iflist = append(iflist, *ifname)
-	} else {
-		// Discover interfaces and try all of them in order
-		links, err := netlink.LinkList()
-		if err != nil {
-			log.Fatal("Could not obtain interfaces from netlink; aborting")
+		var iface *net.Interface
+		var err error
+		if iface, err = net.InterfaceByName(*ifname); err != nil {
+			log.Fatalf("Could not find interface %s: %v", *ifname, err)
 		}
-		for _, l := range links {
-			if l.Attrs().Name == "lo" {
-				// Small shitty optimization
-				continue
-			}
-			iflist = append(iflist, l.Attrs().Name)
+		iflist = append(iflist, *iface)
+	} else {
+		var err error
+		if iflist, err = interfaces.GetNonLoopbackInterfaces(); err != nil {
+			log.Fatalf("Could not obtain the list of network interfaces: %v", err)
 		}
 	}
 
-	for _, ifname := range iflist {
+	for _, iface := range iflist {
 		if *useV6 {
-			if err := boot6(ifname); err != nil {
-				log.Printf("Could not boot from %s: %v", ifname, err)
+			if err := boot6(iface.Name); err != nil {
+				log.Printf("Could not boot from %s: %v", iface.Name, err)
 			}
 		}
 		if *useV4 {
-			if err := boot4(ifname); err != nil {
-				log.Printf("Could not boot from %s: %v", ifname, err)
+			if err := boot4(iface.Name); err != nil {
+				log.Printf("Could not boot from %s: %v", iface.Name, err)
 			}
 		}
 	}
