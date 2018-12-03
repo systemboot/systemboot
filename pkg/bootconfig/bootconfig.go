@@ -65,7 +65,10 @@ func (bc *BootConfig) Boot() error {
 			}
 		}
 	}()
-	return kexec.FileLoad(kernel, initramfs, bc.KernelArgs)
+	if err := kexec.FileLoad(kernel, initramfs, bc.KernelArgs); err != nil {
+		return err
+	}
+	return kexec.Reboot()
 }
 
 // NewBootConfig parses a boot configuration in JSON format and returns a
