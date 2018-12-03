@@ -2,6 +2,7 @@ package bootconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
 
@@ -68,7 +69,13 @@ func (bc *BootConfig) Boot() error {
 	if err := kexec.FileLoad(kernel, initramfs, bc.KernelArgs); err != nil {
 		return err
 	}
-	return kexec.Reboot()
+
+	err = kexec.Reboot()
+	if err == nil {
+		return errors.New("Unexpectedly returned from Reboot() without error. The system did not reboot")
+	}
+	return err
+
 }
 
 // NewBootConfig parses a boot configuration in JSON format and returns a
