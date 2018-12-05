@@ -83,6 +83,15 @@ func main() {
 	}
 
 	for _, iface := range iflist {
+		log.Printf("Waiting for network interface %s to come up", iface.Name)
+		start := time.Now()
+		_, err := netboot.IfUp(iface.Name, interfaceUpTimeout)
+		if err != nil {
+			log.Printf("IfUp failed: %v", err)
+			continue
+		}
+		debug("Interface %s is up after %v", ifname, time.Since(start))
+
 		var dhcp []dhcpFunc
 		if *useV6 {
 			dhcp = append(dhcp, dhcp6)
@@ -101,16 +110,10 @@ func main() {
 }
 
 func boot(ifname string, dhcp dhcpFunc) error {
-	log.Printf("Waiting for network interface %s to come up", ifname)
-	start := time.Now()
-	_, err := netboot.IfUp(ifname, interfaceUpTimeout)
-	if err != nil {
-		return fmt.Errorf("DHCPv6: IfUp failed: %v", err)
-	}
-	debug("Interface %s is up after %v", ifname, time.Since(start))
 	var (
 		netconf  *netboot.NetConf
 		bootfile string
+		err      error
 	)
 	if *skipDHCP {
 		log.Print("Skipping DHCP")
