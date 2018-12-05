@@ -115,9 +115,10 @@ func boot(ifname string, dhcp dhcpFunc) error {
 	if *skipDHCP {
 		log.Print("Skipping DHCP")
 	} else {
+		// send a netboot request via DHCP
 		netconf, bootfile, err = dhcp(ifname)
 		if err != nil {
-			return fmt.Errorf("DHCP: failed to extract network configuration for %s: %v", ifname, err)
+			return fmt.Errorf("DHCPv6: netboot request for interface %s failed: %v", ifname, err)
 		}
 		debug("DHCP: network configuration: %+v", netconf)
 		if !*dryRun {
