@@ -90,7 +90,7 @@ func main() {
 			log.Printf("IfUp failed: %v", err)
 			continue
 		}
-		debug("Interface %s is up after %v", ifname, time.Since(start))
+		debug("Interface %s is up after %v", iface.Name, time.Since(start))
 
 		var dhcp []dhcpFunc
 		if *useV6 {
