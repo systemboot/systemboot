@@ -8,29 +8,34 @@ import (
 )
 
 const (
-	// Blob type in PCR 7
-	Blob uint32 = 7
-	// BootConfig type in PCR 8
-	BootConfig uint32 = 8
-	// ConfigData type in PCR 8
-	ConfigData uint32 = 8
-	// NvramVars type in PCR 9
-	NvramVars uint32 = 9
+	// BlobPCR type in PCR 7
+	BlobPCR uint32 = 7
+	// BootConfigPCR type in PCR 8
+	BootConfigPCR uint32 = 8
+	// ConfigDataPCR type in PCR 8
+	ConfigDataPCR uint32 = 8
+	// NvramVarsPCR type in PCR 9
+	NvramVarsPCR uint32 = 9
 )
 
 // TryMeasureBootConfig measures bootconfig contents
-func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree string) {
+func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree, multiboot, multibootArgs string, modules []string) {
 	TPMInterface, err := tpm.NewTPM()
 	if err != nil {
 		log.Printf("Cannot open TPM: %v", err)
 		return
 	}
-	TryMeasureData(BootConfig, []byte(name), name)
-	TryMeasureData(BootConfig, []byte(kernel), kernel)
-	TryMeasureData(BootConfig, []byte(initramfs), initramfs)
-	TryMeasureData(BootConfig, []byte(kernelArgs), kernelArgs)
-	TryMeasureData(BootConfig, []byte(deviceTree), deviceTree)
-	TryMeasureFiles(kernel, initramfs, deviceTree)
+	TryMeasureData(BootConfigPCR, []byte(name), name)
+	TryMeasureData(BootConfigPCR, []byte(kernel), kernel)
+	TryMeasureData(BootConfigPCR, []byte(initramfs), initramfs)
+	TryMeasureData(BootConfigPCR, []byte(kernelArgs), kernelArgs)
+	TryMeasureData(BootConfigPCR, []byte(deviceTree), deviceTree)
+	TryMeasureData(BootConfigPCR, []byte(multiboot), multiboot)
+	TryMeasureData(BootConfigPCR, []byte(multibootArgs), multibootArgs)
+	for i, module := range modules {
+		TryMeasureData(BootConfigPCR, []byte(module), module+string(i))
+	}
+	TryMeasureFiles(kernel, initramfs, deviceTree, multiboot)
 	TPMInterface.Close()
 }
 
@@ -59,7 +64,7 @@ func TryMeasureFiles(files ...string) {
 		if err != nil {
 			continue
 		}
-		TPMInterface.Measure(Blob, data)
+		TPMInterface.Measure(BlobPCR, data)
 	}
 	TPMInterface.Close()
 }
