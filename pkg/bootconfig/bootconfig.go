@@ -38,14 +38,8 @@ func (bc *BootConfig) IsValid() bool {
 func (bc *BootConfig) Boot() error {
 	data := bc.Name + bc.Kernel + bc.Initramfs + bc.KernelArgs + bc.DeviceTree + bc.Multiboot + bc.MultibootArgs
 	crypto.TryMeasureData(crypto.BootConfigPCR, []byte(data), "bootconfig")
-
-	kernel, err := os.Open(bc.Kernel)
-	if err != nil {
-		return err
-	}
-	var initramfs *os.File
-	if bc.Initramfs != "" {
-		initramfs, err = os.Open(bc.Initramfs)
+	if bc.Kernel != "" {
+		kernel, err := os.Open(bc.Kernel)
 		if err != nil {
 			return err
 		}
@@ -96,7 +90,7 @@ func (bc *BootConfig) Boot() error {
 			return fmt.Errorf("kexec.Load() error: %v", err)
 		}
 	}
-	err = kexec.Reboot()
+	err := kexec.Reboot()
 	if err == nil {
 		return errors.New("Unexpectedly returned from Reboot() without error. The system did not reboot")
 	}
