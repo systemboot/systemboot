@@ -13,6 +13,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/systemboot/systemboot/pkg/bootconfig"
+	"github.com/systemboot/systemboot/pkg/storage"
 )
 
 // List of directories where to recursively look for grub config files. The root dorectory
@@ -53,7 +54,7 @@ func isGrubSearchDir(dirname string) bool {
 // BootConfig structures, one for each menuentry, in the same order as they
 // appear in grub.cfg. All opened kernel and initrd files are relative to
 // basedir.
-func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.BootConfig {
+func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, basedir string) []bootconfig.BootConfig {
 	// This parser sucks. It's not even a parser, it just looks for lines
 	// starting with menuentry, linux or initrd.
 	// TODO use a parser, e.g. https://github.com/alecthomas/participle
@@ -61,6 +62,7 @@ func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.
 		log.Printf("Warning: invalid GRUB version: %d", ver)
 		return nil
 	}
+	kernelBasedir := basedir
 	bootconfigs := make([]bootconfig.BootConfig, 0)
 	inMenuEntry := false
 	var cfg *bootconfig.BootConfig
@@ -92,6 +94,35 @@ func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.
 			}
 			cfg.Name = name
 		} else if inMenuEntry {
+			// check if location of kernel is at an other partition
+			// see https://www.gnu.org/software/grub/manual/grub/html_node/search.html
+			if sline[0] == "search" {
+				for _, str1 := range sline {
+					if str1 == "--set=root" {
+						log.Printf("Kernel seems to be on an other partitioin then the grub.cfg file")
+						for _, str2 := range sline {
+							if len(str2) == 36 && string(str2[8]) == "-" && string(str2[13]) == "-" && string(str2[18]) == "-" && string(str2[23]) == "-" {
+								kernelFsUUID := str2
+								log.Printf("fs-uuid: %s", kernelFsUUID)
+								partitions, err := storage.PartitionsByFsUUID(devices, kernelFsUUID)
+								if err != nil {
+									log.Printf("Unexpected error while looking up fs uuid: %v", err) // PartitionsByFsUUID does not return an error for now
+								} else if len(partitions) == 0 {
+									log.Printf("WARNING: No partition found with filesystem uuid:'%s' to load kernel from!", kernelFsUUID) // TODO throw error ?
+									continue
+								}
+								if len(partitions) > 1 {
+									log.Printf("WARNING: more than one partition found with the given file. Using the first one")
+								}
+								dev := partitions[0]
+								kernelBasedir = path.Dir(kernelBasedir)
+								kernelBasedir = path.Join(kernelBasedir, dev.Name)
+								log.Printf("Kernel is on: %s", dev.Name)
+							}
+						}
+					}
+				}
+			}
 			// otherwise look for kernel and initramfs configuration
 			if len(sline) < 2 {
 				// surely not a valid linux or initrd directive, skip it
@@ -101,22 +132,22 @@ func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.
 				kernel := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
 				cmdline = unquote(ver, cmdline)
-				cfg.Kernel = path.Join(basedir, kernel)
+				cfg.Kernel = path.Join(kernelBasedir, kernel)
 				cfg.KernelArgs = cmdline
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
 				initrd := sline[1]
-				cfg.Initramfs = path.Join(basedir, initrd)
+				cfg.Initramfs = path.Join(kernelBasedir, initrd)
 			} else if sline[0] == "multiboot" || sline[0] == "multiboot2" {
 				multiboot := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
 				cmdline = unquote(ver, cmdline)
-				cfg.Multiboot = path.Join(basedir, multiboot)
+				cfg.Multiboot = path.Join(kernelBasedir, multiboot)
 				cfg.MultibootArgs = cmdline
 			} else if sline[0] == "module" || sline[0] == "module2" {
 				module := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
 				cmdline = unquote(ver, cmdline)
-				module = path.Join(basedir, module)
+				module = path.Join(kernelBasedir, module)
 				if cmdline != "" {
 					module = module + " " + cmdline
 				}
@@ -148,7 +179,7 @@ func isMn(r rune) bool {
 
 // ScanGrubConfigs looks for grub2 and grub legacy config files in the known
 // locations and returns a list of boot configurations.
-func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
+func ScanGrubConfigs(devices []storage.BlockDev, basedir string) []bootconfig.BootConfig {
 	bootconfigs := make([]bootconfig.BootConfig, 0)
 	err := filepath.Walk(basedir, func(currentPath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -177,6 +208,7 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 			return nil
 		}
 		cfgname := info.Name()
+<<<<<<< HEAD
 		var ver grubVersion
 		switch cfgname {
 		case "grub.cfg":
@@ -190,6 +222,25 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 		data, err := ioutil.ReadFile(currentPath)
 		if err != nil {
 			return err
+=======
+		if cfgname == "grub.cfg" || cfgname == "grub2.cfg" {
+			var ver grubVersion
+			if cfgname == "grub.cfg" {
+				ver = grubV1
+			} else if cfgname == "grub2.cfg" {
+				ver = grubV2
+			}
+			// try parsing
+			log.Printf("Trying to read %s", currentPath)
+			grubcfg, errRead := ioutil.ReadFile(currentPath)
+			if errRead != nil {
+				log.Printf("cannot open %s: %v", currentPath, errRead)
+				// continue anyway
+				return nil
+			}
+			cfgs := ParseGrubCfg(ver, devices, string(grubcfg), basedir)
+			bootconfigs = append(bootconfigs, cfgs...)
+>>>>>>> initial draft, support for vfat and ext4
 		}
 		cfgs := ParseGrubCfg(ver, string(data), basedir)
 		bootconfigs = append(bootconfigs, cfgs...)
