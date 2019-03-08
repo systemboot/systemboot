@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -210,16 +211,31 @@ func boot(ifname string, dhcp dhcpFunc) error {
 	}
 	debug("DHCP: saved boot file to %s", filename)
 	if !*dryRun {
-		log.Printf("DHCP: kexec'ing into %s", filename)
-		kernel, err := os.OpenFile(filename, os.O_RDONLY, 0)
-		if err != nil {
-			return fmt.Errorf("DHCP: cannot open file %s: %v", filename, err)
-		}
-		if err = kexec.FileLoad(kernel, nil /* ramfs */, "" /* cmdline */); err != nil {
-			return fmt.Errorf("DHCP: kexec.FileLoad failed: %v", err)
-		}
-		if err = kexec.Reboot(); err != nil {
-			return fmt.Errorf("DHCP: kexec.Reboot failed: %v", err)
+		if strings.HasSuffix(filename, ".iso") {
+			// mount the ISO and look for grub config
+			if err := os.MkdirAll("/mnt/iso", 0600); err != nil {
+				return fmt.Errorf("DHCP: cannot create /mnt/iso: %v", err)
+			}
+			cmd := exec.Command("mount", "-o", "loop", "-t", "iso9660", filename, "/mnt/iso")
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("DHCP: cannot mount ISO on /mnt/iso: %v", err)
+			}
+			cmd = exec.Command("localboot", "-d", "-grub", "-grub-mnt", "/mnt/iso")
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("DHCP: cannot boot kernel from /mnt/iso: %v", err)
+			}
+		} else {
+			log.Printf("DHCP: kexec'ing into %s", filename)
+			kernel, err := os.OpenFile(filename, os.O_RDONLY, 0)
+			if err != nil {
+				return fmt.Errorf("DHCP: cannot open file %s: %v", filename, err)
+			}
+			if err = kexec.FileLoad(kernel, nil /* ramfs */, "" /* cmdline */); err != nil {
+				return fmt.Errorf("DHCP: kexec.FileLoad failed: %v", err)
+			}
+			if err = kexec.Reboot(); err != nil {
+				return fmt.Errorf("DHCP: kexec.Reboot failed: %v", err)
+			}
 		}
 	}
 	return nil
