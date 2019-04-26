@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -29,12 +32,38 @@ _____ _____    ____   ____   ____ _______
 `
 var debug = func(string, ...interface{}) {}
 
+type netVars struct {
+	HostIP         string `json:"host_ip"`
+	HostNetmask    string `json:"netmask"`
+	DefaultGateway string `json:"gateway"`
+	DNSServer      string `json:"dns"`
+
+	HostPrivKey string `json:"host_priv_key"`
+	HostPupKey  string `json:"host_pub_key"`
+
+	BootstrapURL    string `json:"bootstrap_url"`
+	SignaturePubKey string `json:"signature_pub_key"`
+}
+
 func main() {
 	flag.Parse()
 	if *doDebug {
 		debug = log.Printf
 	}
 	log.Print(banner)
+
+	//get network variables
+	file, err := os.Open("/root/netvars.json")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+	data, _ := ioutil.ReadAll(file)
+	fmt.Println(string(data))
+	vars := netVars{}
+	json.Unmarshal(data, &vars)
+	fmt.Printf("Parsed network variables: %v\n", vars)
 
 	//setup ip
 	cmd := exec.Command("ip", "addr", "add", ip, "dev", eth)
