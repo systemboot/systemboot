@@ -10,6 +10,7 @@ import (
 	"path"
 	"syscall"
 
+	"github.com/systemboot/systemboot/pkg/bootconfig"
 	"github.com/systemboot/systemboot/pkg/storage"
 )
 
@@ -171,32 +172,29 @@ func main() {
 
 	//get kernel
 	log.Print("Get kernel from " + url)
-	cmd = exec.Command("wget", "-O", "ipkernel", url)
+	cmd = exec.Command("wget", "-O", "remoteKernel", url)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		log.Printf("Error executing %v: %v", cmd, err)
 	}
 
-	//boot
-	log.Print("Load kernel")
-	cmd = exec.Command("kexec", "-l", "ipkernel", "-c", "console=ttyS0,115200")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Printf("Error executing %v: %v", cmd, err)
-	}
+	// create bootconfig
+	log.Print("Create bootconfig")
+	cfg := new(bootconfig.BootConfig)
+	cfg.Kernel = "remoteKernel"
+	cfg.KernelArgs = "console=ttyS0,115200"
 
 	if *dryRun {
 		debug("Dryrun mode: will not boot")
 		return
 	}
-
-	log.Print("Do kexec")
-	cmd = exec.Command("kexec", "-e")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Printf("Error executing %v: %v", cmd, err)
+	// boot
+	if err := cfg.Boot(); err != nil {
+		log.Printf("Failed to boot kernel %s: %v", cfg.Kernel, err)
 	}
+	// if we reach this point, no boot configuration succeeded
+	log.Print("No boot configuration succeeded")
+
+	return
 }
