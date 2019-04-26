@@ -7,3 +7,5 @@ cmds/vpdbootmanager/vpdbootmanager
 cmds/fixmynetboot/fixmynetboot
 uinit/uinit
 uinit/.bb
+ipboot/ipboot
+ipboot/.bb
