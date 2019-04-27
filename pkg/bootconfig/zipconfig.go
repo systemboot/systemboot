@@ -2,6 +2,7 @@ package bootconfig
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/systemboot/systemboot/pkg/crypto"
 	"golang.org/x/crypto/ed25519"
@@ -136,4 +138,106 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 		return nil, "", errors.New("No manifest found")
 	}
 	return manifest, tempDir, nil
+}
+
+// TODO. rewiev
+// Pack boot configuration
+func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []string, initrdFilePaths []string, dtFilePaths []string, privateKeyPath *string, privateKeyPassword []byte) error {
+	packDir, err := ioutil.TempDir(DefaultTmpDir, "")
+	if err != nil {
+		return err
+	}
+
+	manifest, err := ioutil.ReadFile(manifestFilePath)
+	if err != nil {
+		return err
+	}
+
+	mc := ManifestConfig{}
+	if err = json.Unmarshal(manifest, &mc); err != nil {
+		return err
+	}
+
+	manifestPath := path.Join(packDir, DefaultManifestJSONFilename)
+	if err = ioutil.WriteFile(manifestPath, manifest, 777); err != nil {
+		return err
+	}
+
+	kernelPath := path.Join(packDir, DefaultKernelPath)
+	if err = os.MkdirAll(kernelPath, 0700); err != nil {
+		return err
+	}
+	for _, kernel := range kernelFilePaths {
+		kernelData, err := ioutil.ReadFile(kernel)
+		if err != nil {
+			return err
+		}
+
+		newKernelFilePath := path.Join(kernelPath, filepath.Base(kernel))
+		if err = ioutil.WriteFile(newKernelFilePath, kernelData, 777); err != nil {
+			return err
+		}
+	}
+
+	initrdPath := path.Join(packDir, DefaultInitrdPath)
+	if err := os.MkdirAll(initrdPath, 0700); err != nil {
+		return err
+	}
+	for _, initrd := range initrdFilePaths {
+		initrdData, err := ioutil.ReadFile(initrd)
+		if err != nil {
+			return err
+		}
+
+		newInitrdFilePath := path.Join(initrdPath, filepath.Base(initrd))
+		if err = ioutil.WriteFile(newInitrdFilePath, initrdData, 777); err != nil {
+			return err
+		}
+	}
+
+	dtPath := path.Join(packDir, DefaultDeviceTreePath)
+	if err := os.MkdirAll(dtPath, 0700); err != nil {
+		return err
+	}
+	for _, dt := range dtFilePaths {
+		dtData, err := ioutil.ReadFile(dt)
+		if err != nil {
+			return err
+		}
+
+		newDtFilePath := path.Join(dtPath, filepath.Base(dt))
+		if err = ioutil.WriteFile(newDtFilePath, dtData, 777); err != nil {
+			return err
+		}
+	}
+
+	var files []string
+	files = append(files, manifestPath, kernelPath, initrdPath, dtPath)
+	if err := archiver.Zip.Make(outputFilePath, files); err != nil {
+		return err
+	}
+
+	if privateKeyPath != nil {
+		tarFile, err := ioutil.ReadFile(outputFilePath)
+		if err != nil {
+			return err
+		}
+
+		privateKey, err := crypto.LoadPrivateKeyFromFile(*privateKeyPath, privateKeyPassword)
+		if err != nil {
+			return err
+		}
+
+		signature := ed25519.Sign(privateKey, tarFile)
+		if len(signature) <= 0 {
+			return errors.New("signing boot configuration failed")
+		}
+
+		tarFile = append(tarFile, signature...)
+		if err = ioutil.WriteFile(outputFilePath, tarFile, 777); err != nil {
+			return err
+		}
+	}
+
+	return os.RemoveAll(packDir)
 }
