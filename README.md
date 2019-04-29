@@ -9,6 +9,7 @@ SystemBoot is a distribution for LinuxBoot to create a system firmware + bootloa
 
 * `netboot`: a network boot client that uses DHCP and HTTP to get a boot program based on Linux, and uses kexec to run it
 * `localboot`: a tool that finds bootable kernel configurations on the local disks and boots them
+* `ipboot`: a network boot client that uses static ip configuration stored on disk to get a signed boot program based on 
 * `uinit`: a wrapper around `netboot` and `localboot` that just mimicks a BIOS/UEFI BDS behaviour, by looping between network booting and local booting. The name `uinit` is necessary to be picked up as boot program by u-root.
 
 This work is similar to the `pxeboot` and `boot` commands that are already part of u-root, but approach and implementation are slightly different. Thanks to Chris Koch and Jean-Marie Verdun for pioneering in this area.
@@ -45,6 +46,114 @@ In the current mode, `localboot` does the following:
 
 In the future I will also support VPD, which will be used as a substitute for EFI variables, in this specific case to hold the boot order of the various boot entries.
 
+## ipboot
+The `ipboot` programm looks for configuration file named `netvars.json` on all available blockdevices. In this file a static IP configuration is defined as well as a bootstap URL to get the final boot files from and the pupblic key to verify the signature. These bootfiles are packed into a signed ZIP archive. `ipboot` downloads This is done by using verified and measured boot process.
+
+### Boot options
+
+blblblbl
+
+### IP Configuration
+
+#### 1) Create netvars.json
+There must be an `netvars.json` on the disk with the following structure:
+```json
+{
+  {
+  "host_ip":"10.0.2.15/24",
+  "netmask":"",
+  "gateway":"10.0.2.2/24",
+  "dns":"",
+  "host_priv_key":"",
+  "host_pub_key":"",
+  "bootstrap_url":"http://some.remotesource.io/bc.zip",
+  "signature_pub_key":""
+}
+
+}
+```
+###### host_ip
+The static IP address of the host. The IP musst be specified in CIDR notation like above.
+
+###### netmask
+The traditional notation of subnet mask. This field is ignored at the moment.
+
+###### gateway
+The static IP address of default gateway. The IP musst be specified in CIDR notation like above.
+
+###### dns
+With this field a dedicated DNS Server can be choosen.
+
+###### host_priv_key
+Fore later use.
+
+###### host_pub_key
+Fore later use.
+
+###### bootstrap_url
+This is the URL where the archive including the boot files resides.
+
+###### signature_pub_key
+The public key to verify the signature of the archive
+
+
+#### 2) Add netvars.json to disk
+The `netvars.json` has to be placed at `/` on any of the blockdevices in the system. `ipboot` will check any device listed unter `/sys/class/blck` and searches the file at root level of the filesystem
+
+### Boot Configuration
+
+During boot phase systemboot tries to find the boot configuration file by using the NVRAM boot options. If it is found then it gets executed by systemboot as part of the boot process.
+
+#### 1) Generate signing keys
+
+Needed to sign the the boot configuration file
+
+```bash
+configtool genkeys --passphrase=thisisnotasecurepassword private_key.pem public_key.pem
+```
+
+#### 2) Create a manifest.json
+This a unique identifier for the boot configuration. It can have multiple boot configurations in an array:
+
+```json
+{
+  "configs": [
+    {
+      "kernel_args": "root=/dev/hdx",
+      "initrd": "initrd/path/inside/zip-archive",
+      "kernel": "initrd/path/inside/zip-archive",
+      "name": "test ipboot configuration"
+    }
+  ]
+}
+```
+
+###### kernel_args
+Is the kernel commandline for the linux kernel to boot.
+
+###### initrd
+Is the initramfs file name in the initrd directory.
+
+###### kernel
+Is the kernel file name in the kernel directory.
+
+###### dt
+Is the device-tree file name in the dt directory.
+
+###### name
+The name of the boot configuration
+
+
+
+#### 3) Pack configuration + arbitrary files
+
+Now we merging everything into one zip file and attaching a signature at the end. The output file must have an `.zip` extension. In the following example it is `bc.zip`:
+
+```bash
+configtool pack --passphrase=thisisnotasecurepassword --kernel-dir=kernelDir --initrd-dir=initrdDir --dt-dir=deviceTreeDir manifest.json bc.zip private_key.pem
+```
+Afterwards upload `bc.zip` to a server so that it maches the URL you specified in `netvars.json`.
+
 ## uinit
 
 The `uinit` program just wraps `netboot` and `localboot` in a forever-loop logic, just like your BIOS/UEFI would do. At the moment it just loops between netboot and localboot in this order, but I plan to make this more flexible and configurable.
@@ -58,8 +167,8 @@ The `uinit` program just wraps `netboot` and `localboot` in a forever-loop logic
 
 ```
 go get -u github.com/u-root/u-root
-go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot}
-u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot}
+go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot,ipboot}
+u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot,ipboot}
 ```
 
 The initramfs will be located in `/tmp/initramfs_${platform}_${arch}.cpio`.
