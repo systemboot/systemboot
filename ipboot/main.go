@@ -170,20 +170,40 @@ func main() {
 		}
 	}
 
-	//get kernel
-	log.Print("Get kernel from " + url)
-	cmd = exec.Command("wget", "-O", "remoteKernel", url)
+	// get remote boot bundle
+	log.Print("Get boot files from " + vars.BootstrapURL)
+	cmd = exec.Command("wget", "-O", "/root/bc.zip", vars.BootstrapURL)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		log.Printf("Error executing %v: %v", cmd, err)
 	}
 
-	// create bootconfig
-	log.Print("Create bootconfig")
-	cfg := new(bootconfig.BootConfig)
-	cfg.Kernel = "remoteKernel"
-	cfg.KernelArgs = "console=ttyS0,115200"
+	// check signature and unpck
+	inputFile := "/root/bc.zip"
+	pubKeyFile := "/root/pub_key.pem"
+	manifest, outputDir, err := bootconfig.FromZip(inputFile, &pubKeyFile)
+	if err != nil {
+		panic(err)
+	}
+	debug("Boot files unpacked into: " + outputDir)
+	debug("Manifest: %+v", *manifest)
+	// get first bootconfig from manifest
+	cfg, err := manifest.GetBootConfig(0)
+	if err != nil {
+		panic(err)
+	}
+	debug("Bootconfig: %+v", *cfg)
+
+	// update paths
+	cfg.Kernel = path.Join(outputDir, cfg.Kernel)
+	if cfg.Initramfs != "" {
+		cfg.Initramfs = path.Join(outputDir, cfg.Initramfs)
+	}
+	if cfg.DeviceTree != "" {
+		cfg.Initramfs = path.Join(outputDir, cfg.DeviceTree)
+	}
+	debug("Adjusted Bootconfig: %+v", *cfg)
 
 	if *dryRun {
 		debug("Dryrun mode: will not boot")
