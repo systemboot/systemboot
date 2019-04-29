@@ -4,6 +4,8 @@ package main
 
 import (
 	"log"
+
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -33,7 +35,7 @@ var (
 	packSignPrivateKeyFile = pack.Arg("private-key", "Path to the private key file").String()
 
 	unpackInputFilename       = unpack.Arg("bc-file", "Boot configuration file").Required().String()
-	unpackDir                 = unpack.Arg("output-dir", "Path to the unpacked output directory").Required().String()
+	unpackDir                 = unpack.Arg("output-dir", "Path to the unpacked output directory").String()
 	unpackVerifyPublicKeyFile = unpack.Arg("public-key", "Path to the public key file").String()
 )
 

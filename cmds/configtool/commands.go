@@ -59,22 +59,31 @@ func PackBootConfiguration() error {
 		}
 	}
 
-	return bootconfig.Pack(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, packSignPrivateKeyFile, []byte(*packSignPassphrase))
+	return bootconfig.ToZip(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, packSignPrivateKeyFile, []byte(*packSignPassphrase))
 }
 
 // UnpackBootConfiguration unpacks a boot configuration file and returns the
 // file path of a directory containing the data
 func UnpackBootConfiguration() error {
 	if *unpackDir != "" {
-		bootconfig.DefaultTmpDir = *unpackDir
+		// FIXME
+		//bootconfig.DefaultTmpDir = *unpackDir
+		fmt.Println(`flag "output-dir" currently not supported`)
 	}
 
-	_, outputDir, err := bootconfig.Unpack(*unpackInputFilename, unpackVerifyPublicKeyFile)
+	if *unpackVerifyPublicKeyFile == "" {
+		// FIXME
+		// don't know how to handel it.
+		// FromZip expects that no key is provided, only if pointer is nil
+		unpackVerifyPublicKeyFile = nil
+	}
+
+	_, outputDir, err := bootconfig.FromZip(*unpackInputFilename, unpackVerifyPublicKeyFile)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Boot configuration unpacked into: " + *outputDir)
+	fmt.Println("Boot configuration unpacked into: " + outputDir)
 
 	return nil
 }

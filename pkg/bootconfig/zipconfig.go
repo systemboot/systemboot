@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/mholt/archiver"
 	"github.com/systemboot/systemboot/pkg/crypto"
 	"golang.org/x/crypto/ed25519"
 )
@@ -140,10 +141,15 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 	return manifest, tempDir, nil
 }
 
+var defaultManifestJSONFilename = "manifest.json"
+var defaultDeviceTreePath = "device-tree"
+var defaultKernelPath = "kernel"
+var defaultInitrdPath = "initrd"
+
 // TODO. rewiev
 // Pack boot configuration
 func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []string, initrdFilePaths []string, dtFilePaths []string, privateKeyPath *string, privateKeyPassword []byte) error {
-	packDir, err := ioutil.TempDir(DefaultTmpDir, "")
+	packDir, err := ioutil.TempDir(os.TempDir(), "")
 	if err != nil {
 		return err
 	}
@@ -153,17 +159,17 @@ func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []str
 		return err
 	}
 
-	mc := ManifestConfig{}
+	mc := Manifest{}
 	if err = json.Unmarshal(manifest, &mc); err != nil {
 		return err
 	}
 
-	manifestPath := path.Join(packDir, DefaultManifestJSONFilename)
+	manifestPath := path.Join(packDir, defaultManifestJSONFilename)
 	if err = ioutil.WriteFile(manifestPath, manifest, 777); err != nil {
 		return err
 	}
 
-	kernelPath := path.Join(packDir, DefaultKernelPath)
+	kernelPath := path.Join(packDir, defaultKernelPath)
 	if err = os.MkdirAll(kernelPath, 0700); err != nil {
 		return err
 	}
@@ -179,7 +185,7 @@ func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []str
 		}
 	}
 
-	initrdPath := path.Join(packDir, DefaultInitrdPath)
+	initrdPath := path.Join(packDir, defaultInitrdPath)
 	if err := os.MkdirAll(initrdPath, 0700); err != nil {
 		return err
 	}
@@ -195,7 +201,7 @@ func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []str
 		}
 	}
 
-	dtPath := path.Join(packDir, DefaultDeviceTreePath)
+	dtPath := path.Join(packDir, defaultDeviceTreePath)
 	if err := os.MkdirAll(dtPath, 0700); err != nil {
 		return err
 	}
@@ -213,7 +219,7 @@ func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []str
 
 	var files []string
 	files = append(files, manifestPath, kernelPath, initrdPath, dtPath)
-	if err := archiver.Zip.Make(outputFilePath, files); err != nil {
+	if err := archiver.Archive(files, outputFilePath); err != nil {
 		return err
 	}
 
