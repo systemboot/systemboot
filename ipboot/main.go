@@ -14,10 +14,8 @@ import (
 	"github.com/systemboot/systemboot/pkg/storage"
 )
 
-// TODO
+// TODO:
 // implement booter interface
-// create bootconfig
-// signature verification
 
 var (
 	dryRun  = flag.Bool("dryrun", false, "Do everything except booting the loaded kernel")
@@ -25,11 +23,9 @@ var (
 )
 
 const (
-	ip          = "10.0.2.15/24"
-	gateway     = "10.0.2.2/24"
-	eth         = "eth0"
-	url         = "http://mullvad.9esec.io/vmlinuz-fedora"
-	netVarsPath = "netvars.json"
+	eth          = "eth0"
+	bootFilePath = "root/bz.zip"
+	netVarsPath  = "netvars.json"
 )
 
 var banner = `
@@ -119,7 +115,7 @@ func main() {
 	log.Printf("Parse network variables")
 	vars := netVars{}
 	json.Unmarshal(data, &vars)
-	// FIXME : error handling
+	// FIXME: : error handling
 	// print network variables
 	if *doDebug {
 		log.Print("HostIP: " + vars.HostIP)
@@ -172,26 +168,46 @@ func main() {
 
 	// get remote boot bundle
 	log.Print("Get boot files from " + vars.BootstrapURL)
-	cmd = exec.Command("wget", "-O", "/root/bc.zip", vars.BootstrapURL)
+	cmd = exec.Command("wget", "-O", bootFilePath, vars.BootstrapURL)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		log.Printf("Error executing %v: %v", cmd, err)
 	}
+	// create pup_key.pem
+	p := path.Join(os.TempDir(), "pub_key.pem")
+	debug("Write public key from netvars.json to %s", p)
+	debug("Public key is: %s", vars.SignaturePubKey)
+	// If the file doesn't exist, create it, or append to the file
+	f, err := os.Create(p)
+	if err != nil {
+		log.Fatalf("Faild to create public key file: %+v", err)
+	}
+
+	_, err = f.WriteString("-----BEGIN PUBLIC KEY-----\n")
+	_, err = f.WriteString(vars.SignaturePubKey + "\n")
+	_, err = f.WriteString("-----END PUBLIC KEY-----\n")
+	if err != nil {
+		log.Fatalf("Faild to write public key file: %+v", err)
+	}
+	f.Close()
+
+	// err = ioutil.WriteFile(p, []byte("-----BEGIN PUBLIC KEY-----"+vars.SignaturePubKey+"-----END PUBLIC KEY-----"), 0555)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// check signature and unpck
-	inputFile := "/root/bc.zip"
-	pubKeyFile := "/root/pub_key.pem"
-	manifest, outputDir, err := bootconfig.FromZip(inputFile, &pubKeyFile)
+	manifest, outputDir, err := bootconfig.FromZip(bootFilePath, &p)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	debug("Boot files unpacked into: " + outputDir)
 	debug("Manifest: %+v", *manifest)
 	// get first bootconfig from manifest
 	cfg, err := manifest.GetBootConfig(0)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	debug("Bootconfig: %+v", *cfg)
 
