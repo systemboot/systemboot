@@ -7,12 +7,15 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/systemboot/systemboot/pkg/bootconfig"
-	"github.com/systemboot/systemboot/pkg/crypto"
 )
 
-// List of directories where to look for grub config files. The root dorectory
+// List of directories where to recursively look for grub config files. The root dorectory
 // of each mountpoint, these folders inside the mountpoint and all subfolders
 // of these folders are searched
 var (
@@ -76,8 +79,12 @@ func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.
 			}
 			inMenuEntry = true
 			cfg = new(bootconfig.BootConfig)
-			name := strings.Join(sline[1:], " ")
-			name = strings.Split(name, "--")[0]
+			name := ""
+			if len(sline) > 1 {
+				name = strings.Join(sline[1:], " ")
+				name = unquote(ver, name)
+				name = strings.Split(name, "--")[0]
+			}
 			cfg.Name = name
 		} else if inMenuEntry {
 			// otherwise look for kernel and initramfs configuration
@@ -103,12 +110,7 @@ func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.
 			} else if sline[0] == "module" || sline[0] == "module2" {
 				module := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
-				if ver == grubV2 {
-					// if grub2, unquote the string, as directives could be quoted
-					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
-					// TODO unquote everything, not just \$
-					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
-				}
+				cmdline = unquote(ver, cmdline)
 				module = path.Join(basedir, module)
 				if cmdline != "" {
 					module = module + " " + cmdline
@@ -135,18 +137,29 @@ func unquote(ver grubVersion, text string) string {
 	return text
 }
 
+func isMn(r rune) bool {
+	return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
+}
+
 // ScanGrubConfigs looks for grub2 and grub legacy config files in the known
 // locations and returns a list of boot configurations.
 func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 	bootconfigs := make([]bootconfig.BootConfig, 0)
 	err := filepath.Walk(basedir, func(currentPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
+		currentPath, _, _ = transform.String(t, currentPath)
 		if path.Dir(currentPath) == basedir && info.IsDir() && !isGrubSearchDir(path.Base(currentPath)) {
-			log.Printf("Skip %s", currentPath)
-			return filepath.SkipDir // skip irrelevant toplevel directories
+			debug("Skip %s", currentPath)
+			// skip irrelevant toplevel directories
+			return filepath.SkipDir
 		}
 		if info.IsDir() {
-			log.Printf("Check %s", currentPath)
-			return nil // continue
+			debug("Check %s", currentPath)
+			// continue
+			return nil
 		}
 		cfgname := info.Name()
 		if cfgname == "grub.cfg" || cfgname == "grub2.cfg" {
@@ -161,16 +174,16 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 			grubcfg, errRead := ioutil.ReadFile(currentPath)
 			if errRead != nil {
 				log.Printf("cannot open %s: %v", currentPath, errRead)
-				return nil // continue anyway
+				// continue anyway
+				return nil
 			}
-			crypto.TryMeasureData(crypto.ConfigDataPCR, grubcfg, currentPath)
-			cfgs := ParseGrubCfg(ver, string(grubcfg), basedir) // TODO get root dir for cfgs out of grub.cfg instead of taking the curren basedir
+			cfgs := ParseGrubCfg(ver, string(grubcfg), basedir)
 			bootconfigs = append(bootconfigs, cfgs...)
 		}
-		return nil // continue
+		return nil
 	})
 	if err != nil {
-		log.Printf("filepath.Walk error: %v \n", err)
+		log.Printf("filepath.Walk error: %v", err)
 	}
 	return bootconfigs
 }

@@ -17,14 +17,14 @@ import (
 // characteristics from FIT but it's not compatible with it. It uses
 // JSON for interoperability.
 type BootConfig struct {
-	Name          string `json:"name,omitempty"`
-	Kernel        string `json:"kernel"`
-	Initramfs     string `json:"initramfs,omitempty"`
-	KernelArgs    string `json:"kernel_args,omitempty"`
-	DeviceTree    string `json:"devicetree,omitempty"`
-	Multiboot     string `json:"multiboot,omitempty"`
-	MultibootArgs string `json:"multiboot_args,omitempty"`
-	Modules       []string
+	Name          string   `json:"name,omitempty"`
+	Kernel        string   `json:"kernel"`
+	Initramfs     string   `json:"initramfs,omitempty"`
+	KernelArgs    string   `json:"kernel_args,omitempty"`
+	DeviceTree    string   `json:"devicetree,omitempty"`
+	Multiboot     string   `json:"multiboot_kernel,omitempty"`
+	MultibootArgs string   `json:"multiboot_args,omitempty"`
+	Modules       []string `json:"multiboot_modules, omitempty"`
 }
 
 // IsValid returns true if a BootConfig object has valid content, and false
