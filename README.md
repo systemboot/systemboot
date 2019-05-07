@@ -9,7 +9,7 @@ SystemBoot is a distribution for LinuxBoot to create a system firmware + bootloa
 
 * `netboot`: a network boot client that uses DHCP and HTTP to get a boot program based on Linux, and uses kexec to run it
 * `localboot`: a tool that finds bootable kernel configurations on the local disks and boots them
-* `ipboot`: a network boot client that uses static ip configuration stored on disk to get a signed boot program based on 
+* `stboot`: a network boot client that uses static ip configuration stored on disk to get a signed boot program based on 
 * `uinit`: a wrapper around `netboot` and `localboot` that just mimicks a BIOS/UEFI BDS behaviour, by looping between network booting and local booting. The name `uinit` is necessary to be picked up as boot program by u-root.
 
 This work is similar to the `pxeboot` and `boot` commands that are already part of u-root, but approach and implementation are slightly different. Thanks to Chris Koch and Jean-Marie Verdun for pioneering in this area.
@@ -46,12 +46,8 @@ In the current mode, `localboot` does the following:
 
 In the future I will also support VPD, which will be used as a substitute for EFI variables, in this specific case to hold the boot order of the various boot entries.
 
-## ipboot
-The `ipboot` programm looks for configuration file named `netvars.json` on all available blockdevices. In this file a static IP configuration is defined as well as a bootstap URL to get the final boot files from and the pupblic key to verify the signature. These bootfiles are packed into a signed ZIP archive. `ipboot` downloads This is done by using verified and measured boot process.
-
-### Boot options
-
-blblblbl
+## stboot
+The `stboot` programm looks for configuration file named `netvars.json` on all available blockdevices. In this file a static IP configuration is defined as well as a bootstap URL to get the final boot files from and the pupblic key to verify the signature. These bootfiles are packed into a signed ZIP archive. `stboot` downloads This is done by using verified and measured boot process.
 
 ### IP Configuration
 
@@ -98,7 +94,7 @@ The public key to verify the signature of the archive
 
 
 #### 2) Add netvars.json to disk
-The `netvars.json` has to be placed at `/` on any of the blockdevices in the system. `ipboot` will check any device listed unter `/sys/class/blck` and searches the file at root level of the filesystem
+The `netvars.json` has to be placed at `/` on any of the blockdevices in the system. `stboot` will check any device listed unter `/sys/class/blck` and searches the file at root level of the filesystem
 
 ### Boot Configuration
 
@@ -122,7 +118,7 @@ This a unique identifier for the boot configuration. It can have multiple boot c
       "kernel_args": "root=/dev/hdx",
       "initrd": "initrd/path/inside/zip-archive",
       "kernel": "initrd/path/inside/zip-archive",
-      "name": "test ipboot configuration"
+      "name": "test stboot configuration"
     }
   ]
 }
@@ -167,8 +163,8 @@ The `uinit` program just wraps `netboot` and `localboot` in a forever-loop logic
 
 ```
 go get -u github.com/u-root/u-root
-go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot,ipboot}
-u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot,ipboot}
+go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot,stboot}
+u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot,stboot}
 ```
 
 The initramfs will be located in `/tmp/initramfs_${platform}_${arch}.cpio`.
