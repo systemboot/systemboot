@@ -164,7 +164,6 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 	files = append(files, path.Base(manifest))
 	for _, cfg := range mf.Configs {
 		if cfg.Kernel != "" {
-
 			files = append(files, cfg.Kernel)
 		}
 		if cfg.Initramfs != "" {
@@ -226,12 +225,12 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 	}
 	signature := ed25519.Sign(privateKey, buf.Bytes())
 	if len(signature) <= 0 {
-		return fmt.Errorf("signing boot configuration failed")
+		return fmt.Errorf("Signing boot configuration failed")
 	}
 
 	// Add signature
 	if n, _ := buf.Write(signature); n < len(signature) {
-		return fmt.Errorf("error writing signature to archive")
+		return fmt.Errorf("Adding signature to archive faild")
 	}
 
 	// Write buf to disk
@@ -240,7 +239,7 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 	}
 	err = ioutil.WriteFile(output, buf.Bytes(), 0777)
 	if err != nil {
-		return fmt.Errorf("bootconfig: error on writing output file")
+		return err
 	}
 	return nil
 }

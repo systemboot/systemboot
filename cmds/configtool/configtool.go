@@ -27,15 +27,11 @@ var (
 	genkeysPassphrase     = genkeys.Flag("passphrase", "Encrypt keypair in PKCS8 format").String()
 
 	packSignPassphrase     = pack.Flag("passphrase", "Passphrase for private key file").String()
-	packKernelsDir         = pack.Flag("kernel-dir", "Path to the kernel directory containing kernel files").String()
-	packInitrdsDir         = pack.Flag("initrd-dir", "Path to the initrd directory containing initrd files").String()
-	packDTsDir             = pack.Flag("dt-dir", "Path to the dt directory containing device tree files").String()
 	packManifest           = pack.Arg("manifest", "Path to the manifest file in JSON format").Required().String()
 	packOutputFilename     = pack.Arg("bc-file", "Path to output file").Required().String()
-	packSignPrivateKeyFile = pack.Arg("private-key", "Path to the private key file").String()
+	packSignPrivateKeyFile = pack.Arg("private-key", "Path to the private key file").Required().String()
 
 	unpackInputFilename       = unpack.Arg("bc-file", "Boot configuration file").Required().String()
-	unpackDir                 = unpack.Arg("output-dir", "Path to the unpacked output directory").String()
 	unpackVerifyPublicKeyFile = unpack.Arg("public-key", "Path to the public key file").String()
 )
 
@@ -50,7 +46,7 @@ func main() {
 		}
 	case "pack":
 		if err := PackBootConfiguration(); err != nil {
-			log.Panicln(err.Error())
+			log.Fatalln(err.Error())
 		}
 	case "unpack":
 		if err := UnpackBootConfiguration(); err != nil {
