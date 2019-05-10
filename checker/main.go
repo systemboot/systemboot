@@ -41,7 +41,11 @@ func main() {
 	checklistJSON, _ := json.MarshalIndent(checklist, "", "    ")
 	log.Printf("Checklist: %s\n", checklistJSON)
 
-	results := checker.Run(checklist)
+	results, numErrors := checker.Run(checklist)
 	resultsJSON, _ := json.MarshalIndent(results, "", "    ")
 	fmt.Printf("Checker Results: %s\n", resultsJSON)
+
+	if numErrors > 0 {
+		os.Exit(1)
+	}
 }

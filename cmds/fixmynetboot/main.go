@@ -29,37 +29,49 @@ var (
 func checkInterface(ifname string) error {
 	checklist := []checker.Check{
 		checker.Check{
-			Name:        fmt.Sprintf("%s exists", ifname),
-			Run:         checker.InterfaceExists(ifname),
-			Remediate:   checker.InterfaceRemediate(ifname),
-			StopOnError: true,
+			Description:  fmt.Sprintf("%s exists", ifname),
+			CheckFunName: "InterfaceExists",
+			CheckFunArgs: checker.CheckArgs{"ifname": ifname},
+			Remediations: []checker.Check{
+				{
+					CheckFunName: "InterfaceRemediate",
+					CheckFunArgs: checker.CheckArgs{"ifname": ifname},
+				},
+			},
+			StopOnFailure: true,
 		},
 		checker.Check{
-			Name:        fmt.Sprintf("%s link speed", ifname),
-			Run:         checker.LinkSpeed(ifname, 100),
-			Remediate:   nil,
-			StopOnError: false},
+			Description:   fmt.Sprintf("%s link speed", ifname),
+			CheckFunName:  "LinkSpeed",
+			CheckFunArgs:  checker.CheckArgs{"ifname": ifname, "minSpeed": "100"},
+			StopOnFailure: false},
 		checker.Check{
-			Name:        fmt.Sprintf("%s link autoneg", ifname),
-			Run:         checker.LinkAutoneg(ifname, true),
-			Remediate:   nil,
-			StopOnError: false,
+			Description:   fmt.Sprintf("%s link autoneg", ifname),
+			CheckFunName:  "LinkAutoneg",
+			CheckFunArgs:  checker.CheckArgs{"ifname": ifname, "expected": "true"},
+			StopOnFailure: false,
 		},
 		checker.Check{
-			Name:        fmt.Sprintf("%s has link-local", ifname),
-			Run:         checker.InterfaceHasLinkLocalAddress(ifname),
-			Remediate:   nil,
-			StopOnError: true,
+			Description:   fmt.Sprintf("%s has link-local", ifname),
+			CheckFunName:  "InterfaceHasLinkLocalAddress",
+			CheckFunArgs:  checker.CheckArgs{"ifname": ifname},
+			StopOnFailure: true,
 		},
 		checker.Check{
-			Name:        fmt.Sprintf("%s has global addresses", ifname),
-			Run:         checker.InterfaceHasGlobalAddresses("eth0"),
-			Remediate:   nil,
-			StopOnError: true,
+			Description:   fmt.Sprintf("%s has global addresses", ifname),
+			CheckFunName:  "InterfaceHasGlobalAddresses",
+			CheckFunArgs:  checker.CheckArgs{"ifname": ifname},
+			StopOnFailure: true,
 		},
 	}
 
-	return checker.Run(checklist)
+	_, numErrors := checker.Run(checklist)
+
+	if numErrors > 0 {
+		return fmt.Errorf("%d checks failed", numErrors)
+	}
+
+	return nil
 }
 
 func getNonLoopbackInterfaces() ([]string, error) {
@@ -97,7 +109,7 @@ func main() {
 			if !*doEmergencyShell {
 				log.Fatal(err)
 			}
-			if err := checker.EmergencyShell(emergencyShellBanner)(); err != nil {
+			if err := checker.EmergencyShell(checker.CheckArgs{"banner": emergencyShellBanner}); err != nil {
 				log.Fatal(err)
 			}
 		}

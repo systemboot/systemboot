@@ -87,17 +87,22 @@ func (check *Check) run(lvl int) CheckResult {
 }
 
 // Run a list of Checks
-func Run(checklist []Check) []CheckResult {
+func Run(checklist []Check) ([]CheckResult, int) {
 	var results []CheckResult
+	numErrors := 0
 	for _, check := range checklist {
 		res := check.Run()
 		results = append(results, res)
+
+		if res.Error != "" {
+			numErrors++
+		}
 
 		if res.StoppedOnFailure {
 			break
 		}
 	}
-	return results
+	return results, numErrors
 }
 
 func indent(lvl int) string {
