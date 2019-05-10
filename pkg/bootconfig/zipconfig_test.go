@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -97,5 +98,69 @@ func TestFromZipWithMissingSignature(t *testing.T) {
 
 func TestFromZipNoSuchFile(t *testing.T) {
 	_, _, err := FromZip("testdata/nonexisting_bootconfig.zip", nil)
+	require.Error(t, err)
+}
+
+var expectedPaths = []string{
+	"manifest.json",
+	"kernels/kernelA",
+	"kernels/kernelB",
+	"kernels/kernelC",
+	"initrds/initrdA",
+	"devtrees/devtreeA",
+}
+
+func TestToZip(t *testing.T) {
+	outfile := "testdata/test.zip"
+	privkey := "testdata/privkey"
+	pubkey := "testdata/pubkey"
+	err := ToZip(outfile, "testdata/manifest.json", &privkey, nil)
+	defer func() {
+		if err := os.RemoveAll(outfile); err != nil {
+			log.Printf("Cannot remove %s: %v", outfile, err)
+		}
+	}()
+	require.NoError(t, err)
+	manifest, tempdir, err := FromZip("testdata/test.zip", &pubkey)
+	defer func() {
+		if tempdir != "" {
+			if err := os.RemoveAll(tempdir); err != nil {
+				log.Printf("Cannot remove temp dir %s: %v", tempdir, err)
+			}
+		}
+	}()
+	require.NoError(t, err)
+	require.NotEqual(t, "", tempdir)
+	require.NotNil(t, manifest)
+	require.Equal(t, 3, len(manifest.Configs))
+	for _, p := range expectedPaths {
+		_, err := os.Stat(path.Join(tempdir, p))
+		require.NoError(t, err)
+	}
+}
+
+func TestToZipNoFileExtension(t *testing.T) {
+	outfile := "testdata/test"
+	privkey := "testdata/privkey"
+	err := ToZip(outfile, "testdata/manifest.json", &privkey, nil)
+	defer func() {
+		if err := os.RemoveAll(outfile); err != nil {
+			log.Printf("Cannot remove %s: %v", outfile, err)
+		}
+	}()
+	require.NoError(t, err)
+	_, err = os.Stat("testdata/test.zip")
+	require.NoError(t, err)
+}
+
+func TestToZipWrongPathsInManifest(t *testing.T) {
+	outfile := "testdata/test.zip"
+	privkey := "testdata/privkey"
+	err := ToZip(outfile, "testdata/manifest_wrongPaths.json", &privkey, nil)
+	defer func() {
+		if err := os.RemoveAll(outfile); err != nil {
+			log.Printf("Cannot remove %s: %v", outfile, err)
+		}
+	}()
 	require.Error(t, err)
 }

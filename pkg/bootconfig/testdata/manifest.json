@@ -1,0 +1,21 @@
+{
+    "configs": [
+      {
+        "name":"Bootconfig A",
+        "kernel":"kernels/kernelA",
+        "initramfs":"initrds/initrdA",
+        "devicetree":"devtrees/devtreeA"
+      },
+      {
+        "name":"Bootconfig B",
+        "kernel":"kernels/kernelB",
+        "initramfs":"",
+        "devicetree":""
+      },
+      {
+        "name":"Bootconfig C",
+        "kernel":"kernels/kernelC"
+      }
+    ]
+  }
+  

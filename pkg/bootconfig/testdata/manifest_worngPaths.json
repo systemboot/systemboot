@@ -1,0 +1,9 @@
+{
+    "configs": [
+      {
+        "name":"Bootconfig A",
+        "kernel":"kernels/notexist"
+      }
+    ]
+  }
+  
