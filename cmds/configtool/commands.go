@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path"
 
 	"github.com/systemboot/systemboot/pkg/bootconfig"
@@ -34,45 +33,46 @@ func GenKeys() error {
 // PackBootConfiguration packages a boot configuration containing different
 // binaries and a manifest
 func PackBootConfiguration() error {
-	var err error
-	var kernelFilePaths []string
-	if *packKernelsDir != "" {
-		kernelFilePaths, err = getFilePathsByDir(*packKernelsDir)
-		if err != nil {
-			log.Println("No kernels found")
-		}
-	}
+	// var err error
+	// var kernelFilePaths []string
+	// if *packKernelsDir != "" {
+	// 	kernelFilePaths, err = getFilePathsByDir(*packKernelsDir)
+	// 	if err != nil {
+	// 		log.Println("No kernels found")
+	// 	}
+	// }
 
-	var initrdFilePaths []string
-	if *packInitrdsDir != "" {
-		initrdFilePaths, err = getFilePathsByDir(*packInitrdsDir)
-		if err != nil {
-			log.Println("No initrds found")
-		}
-	}
+	// var initrdFilePaths []string
+	// if *packInitrdsDir != "" {
+	// 	initrdFilePaths, err = getFilePathsByDir(*packInitrdsDir)
+	// 	if err != nil {
+	// 		log.Println("No initrds found")
+	// 	}
+	// }
 
-	var dtFilePaths []string
-	if *packDTsDir != "" {
-		dtFilePaths, err = getFilePathsByDir(*packDTsDir)
-		if err != nil {
-			log.Println("No device trees found")
-		}
-	}
+	// var dtFilePaths []string
+	// if *packDTsDir != "" {
+	// 	dtFilePaths, err = getFilePathsByDir(*packDTsDir)
+	// 	if err != nil {
+	// 		log.Println("No device trees found")
+	// 	}
+	// }
 
-	return bootconfig.ToZip(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, packSignPrivateKeyFile, []byte(*packSignPassphrase))
+	//return bootconfig.ToZip(*packOutputFilename, *packManifest, kernelFilePaths, initrdFilePaths, dtFilePaths, packSignPrivateKeyFile, []byte(*packSignPassphrase))
+	return bootconfig.ToZip(*packOutputFilename, *packManifest, packSignPrivateKeyFile, []byte(*packSignPassphrase))
 }
 
 // UnpackBootConfiguration unpacks a boot configuration file and returns the
 // file path of a directory containing the data
 func UnpackBootConfiguration() error {
 	if *unpackDir != "" {
-		// FIXME
+		// FIXME:
 		//bootconfig.DefaultTmpDir = *unpackDir
 		fmt.Println(`flag "output-dir" currently not supported`)
 	}
 
 	if *unpackVerifyPublicKeyFile == "" {
-		// FIXME
+		// FIXME:
 		// don't know how to handel it.
 		// FromZip expects that no key is provided, only if pointer is nil
 		unpackVerifyPublicKeyFile = nil

@@ -2,7 +2,7 @@ package bootconfig
 
 import (
 	"archive/zip"
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,9 +10,7 @@ import (
 	"log"
 	"os"
 	"path"
-	"path/filepath"
 
-	"github.com/mholt/archiver"
 	"github.com/systemboot/systemboot/pkg/crypto"
 	"golang.org/x/crypto/ed25519"
 )
@@ -141,109 +139,108 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 	return manifest, tempDir, nil
 }
 
-var defaultManifestJSONFilename = "manifest.json"
-var defaultDeviceTreePath = "device-tree"
-var defaultKernelPath = "kernel"
-var defaultInitrdPath = "initrd"
-
-// TODO. rewiev
-// Pack boot configuration
-func ToZip(outputFilePath string, manifestFilePath string, kernelFilePaths []string, initrdFilePaths []string, dtFilePaths []string, privateKeyPath *string, privateKeyPassword []byte) error {
-	packDir, err := ioutil.TempDir(os.TempDir(), "")
+// ToZip tries to pack all files specifoed in the the provided manifest.json
+// into a zip archive. An error is returned, if the files (kernel, initrd, etc)
+// doesn't exist at the paths written inside the manifest.json relative to its
+// location. After creating the archive an ed25519 signature is added to the
+// archive. If not allready present, a .zip extendion is added to the output file
+func ToZip(output string, manifest string, privkeyfile *string, passphrase []byte) error {
+	// Get manifest from file. Make sure the file is named accordingliy, since
+	// FromZip will search 'manifest.json' while extraction.
+	if base := path.Base(manifest); base != "manifest.json" {
+		return fmt.Errorf("bootconfig: invalid manifest name. Want 'manifest.json', got: %s", base)
+	}
+	manifestBody, err := ioutil.ReadFile(manifest)
+	if err != nil {
+		return err
+	}
+	mf, err := ManifestFromBytes(manifestBody)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := ioutil.ReadFile(manifestFilePath)
+	// Collect filenames relative to manifest.json
+	files := make([]string, 0)
+	files = append(files, path.Base(manifest))
+	for _, cfg := range mf.Configs {
+		if cfg.Kernel != "" {
+
+			files = append(files, cfg.Kernel)
+		}
+		if cfg.Initramfs != "" {
+			files = append(files, cfg.Initramfs)
+		}
+		if cfg.DeviceTree != "" {
+			files = append(files, cfg.DeviceTree)
+		}
+	}
+
+	// Create a buffer to write the archive to.
+	buf := new(bytes.Buffer)
+	// Create a new zip archive.
+	w := zip.NewWriter(buf)
+
+	// Archive files
+	dir := path.Dir(manifest)
+	for _, file := range files {
+		// Create directories of each filepath first
+		for d := file; ; {
+			d, _ = path.Split(d)
+			if d != "" {
+				w.Create(d)
+				d = path.Clean(d)
+			} else {
+				break
+			}
+		}
+		// Create new file in archive
+		dst, err := w.Create(file)
+		if err != nil {
+			return err
+		}
+		// Copy content from inputpath to new file
+		p := path.Join(dir, file)
+		src, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(dst, src)
+		if err != nil {
+			return err
+		}
+		err = src.Close()
+		if err != nil {
+			return err
+		}
+	}
+	// Write central directory of archive
+	err = w.Close()
 	if err != nil {
 		return err
 	}
 
-	mc := Manifest{}
-	if err = json.Unmarshal(manifest, &mc); err != nil {
+	// Measure buf
+	privateKey, err := crypto.LoadPrivateKeyFromFile(*privkeyfile, passphrase)
+	if err != nil {
 		return err
 	}
-
-	manifestPath := path.Join(packDir, defaultManifestJSONFilename)
-	if err = ioutil.WriteFile(manifestPath, manifest, 777); err != nil {
-		return err
+	signature := ed25519.Sign(privateKey, buf.Bytes())
+	if len(signature) <= 0 {
+		return fmt.Errorf("signing boot configuration failed")
 	}
 
-	kernelPath := path.Join(packDir, defaultKernelPath)
-	if err = os.MkdirAll(kernelPath, 0700); err != nil {
-		return err
-	}
-	for _, kernel := range kernelFilePaths {
-		kernelData, err := ioutil.ReadFile(kernel)
-		if err != nil {
-			return err
-		}
-
-		newKernelFilePath := path.Join(kernelPath, filepath.Base(kernel))
-		if err = ioutil.WriteFile(newKernelFilePath, kernelData, 777); err != nil {
-			return err
-		}
+	// Add signature
+	if n, _ := buf.Write(signature); n < len(signature) {
+		return fmt.Errorf("error writing signature to archive")
 	}
 
-	initrdPath := path.Join(packDir, defaultInitrdPath)
-	if err := os.MkdirAll(initrdPath, 0700); err != nil {
-		return err
+	// Write buf to disk
+	if path.Ext(output) != ".zip" {
+		output = output + ".zip"
 	}
-	for _, initrd := range initrdFilePaths {
-		initrdData, err := ioutil.ReadFile(initrd)
-		if err != nil {
-			return err
-		}
-
-		newInitrdFilePath := path.Join(initrdPath, filepath.Base(initrd))
-		if err = ioutil.WriteFile(newInitrdFilePath, initrdData, 777); err != nil {
-			return err
-		}
+	err = ioutil.WriteFile(output, buf.Bytes(), 0777)
+	if err != nil {
+		return fmt.Errorf("bootconfig: error on writing output file")
 	}
-
-	dtPath := path.Join(packDir, defaultDeviceTreePath)
-	if err := os.MkdirAll(dtPath, 0700); err != nil {
-		return err
-	}
-	for _, dt := range dtFilePaths {
-		dtData, err := ioutil.ReadFile(dt)
-		if err != nil {
-			return err
-		}
-
-		newDtFilePath := path.Join(dtPath, filepath.Base(dt))
-		if err = ioutil.WriteFile(newDtFilePath, dtData, 777); err != nil {
-			return err
-		}
-	}
-
-	var files []string
-	files = append(files, manifestPath, kernelPath, initrdPath, dtPath)
-	if err := archiver.Archive(files, outputFilePath); err != nil {
-		return err
-	}
-
-	if privateKeyPath != nil {
-		tarFile, err := ioutil.ReadFile(outputFilePath)
-		if err != nil {
-			return err
-		}
-
-		privateKey, err := crypto.LoadPrivateKeyFromFile(*privateKeyPath, privateKeyPassword)
-		if err != nil {
-			return err
-		}
-
-		signature := ed25519.Sign(privateKey, tarFile)
-		if len(signature) <= 0 {
-			return errors.New("signing boot configuration failed")
-		}
-
-		tarFile = append(tarFile, signature...)
-		if err = ioutil.WriteFile(outputFilePath, tarFile, 777); err != nil {
-			return err
-		}
-	}
-
-	return os.RemoveAll(packDir)
+	return nil
 }
