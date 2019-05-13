@@ -88,7 +88,7 @@ func (check *Check) run(lvl int) CheckResult {
 
 // Run a list of Checks
 func Run(checklist []Check) ([]CheckResult, int) {
-	var results []CheckResult
+	results := make([]CheckResult, 0)
 	numErrors := 0
 	for _, check := range checklist {
 		res := check.Run()
