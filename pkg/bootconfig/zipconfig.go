@@ -135,6 +135,8 @@ func FromZip(filename string, pubkeyfile *string) (*Manifest, string, error) {
 	}
 	if manifest == nil {
 		return nil, "", errors.New("No manifest found")
+	} else if !manifest.IsValid() {
+		return nil, "", errors.New("Manifest is not valid")
 	}
 	return manifest, tempDir, nil
 }
@@ -148,7 +150,7 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 	// Get manifest from file. Make sure the file is named accordingliy, since
 	// FromZip will search 'manifest.json' while extraction.
 	if base := path.Base(manifest); base != "manifest.json" {
-		return fmt.Errorf("bootconfig: invalid manifest name. Want 'manifest.json', got: %s", base)
+		return fmt.Errorf("Invalid manifest name. Want 'manifest.json', got: %s", base)
 	}
 	manifestBody, err := ioutil.ReadFile(manifest)
 	if err != nil {
@@ -157,6 +159,8 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 	mf, err := ManifestFromBytes(manifestBody)
 	if err != nil {
 		return err
+	} else if !mf.IsValid() {
+		return errors.New("Manifest is not valid")
 	}
 
 	// Collect filenames relative to manifest.json
@@ -201,7 +205,7 @@ func ToZip(output string, manifest string, privkeyfile *string, passphrase []byt
 		p := path.Join(dir, file)
 		src, err := os.Open(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("Cannot find %s specified in %s", p, manifest)
 		}
 		_, err = io.Copy(dst, src)
 		if err != nil {
