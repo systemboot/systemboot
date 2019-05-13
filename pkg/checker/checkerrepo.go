@@ -11,6 +11,7 @@ var funcNameRegex = regexp.MustCompile("[^.]+$")
 
 var globalCheckRepo = make(map[string]CheckFun)
 
+// registerCheckFun registers a function so that it can be referenced by name in Call()
 func registerCheckFun(checkFun CheckFun) {
 	name := funcName(checkFun)
 	globalCheckRepo[name] = checkFun
@@ -20,7 +21,7 @@ func registerCheckFun(checkFun CheckFun) {
 func Call(name string, args CheckArgs) error {
 	checkFun := globalCheckRepo[name]
 	if checkFun == nil {
-		return fmt.Errorf("Invalid : %v. Please ensure the name is correct and that the check function was properly registered", name)
+		return fmt.Errorf("Invalid CheckFun name: %v. Please ensure the name is correct and that the check function was properly registered", name)
 	}
 	return checkFun(args)
 }
