@@ -151,35 +151,33 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 		}
 		t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
 		currentPath, _, _ = transform.String(t, currentPath)
-		if path.Dir(currentPath) == basedir && info.IsDir() && !isGrubSearchDir(path.Base(currentPath)) {
-			debug("Skip %s", currentPath)
-			// skip irrelevant toplevel directories
-			return filepath.SkipDir
-		}
 		if info.IsDir() {
+			if path.Dir(currentPath) == basedir && !isGrubSearchDir(path.Base(currentPath)) {
+				debug("Skip %s", currentPath)
+				// skip irrelevant toplevel directories
+				return filepath.SkipDir
+			}
 			debug("Check %s", currentPath)
 			// continue
 			return nil
 		}
 		cfgname := info.Name()
-		if cfgname == "grub.cfg" || cfgname == "grub2.cfg" {
-			var ver grubVersion
-			if cfgname == "grub.cfg" {
-				ver = grubV1
-			} else if cfgname == "grub2.cfg" {
-				ver = grubV2
-			}
-			// try parsing
-			log.Printf("Trying to read %s", currentPath)
-			grubcfg, errRead := ioutil.ReadFile(currentPath)
-			if errRead != nil {
-				log.Printf("cannot open %s: %v", currentPath, errRead)
-				// continue anyway
-				return nil
-			}
-			cfgs := ParseGrubCfg(ver, string(grubcfg), basedir)
-			bootconfigs = append(bootconfigs, cfgs...)
+		var ver grubVersion
+		switch cfgname {
+		case "grub.cfg":
+			ver = grubV1
+		case "grub2.cfg":
+			ver = grubV2
+		default:
+			return nil
 		}
+		log.Printf("Parsing %s", currentPath)
+		data, err := ioutil.ReadFile(currentPath)
+		if err != nil {
+			return err
+		}
+		cfgs := ParseGrubCfg(ver, string(data), basedir)
+		bootconfigs = append(bootconfigs, cfgs...)
 		return nil
 	})
 	if err != nil {
