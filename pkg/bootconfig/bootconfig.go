@@ -24,7 +24,7 @@ type BootConfig struct {
 	DeviceTree    string   `json:"devicetree,omitempty"`
 	Multiboot     string   `json:"multiboot_kernel,omitempty"`
 	MultibootArgs string   `json:"multiboot_args,omitempty"`
-	Modules       []string `json:"multiboot_modules, omitempty"`
+	Modules       []string `json:"multiboot_modules,omitempty"`
 }
 
 // IsValid returns true if a BootConfig object has valid content, and false
