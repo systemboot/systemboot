@@ -28,6 +28,11 @@ var (
 	}
 )
 
+// Limits rekursive search of grub files. It is the maximum directory depth
+// that is searched through. Since on efi partitions grub files reside usually
+// at /boot/efi/EFI/distro/ , 4 might be a good choice.
+const searchDepth = 4
+
 type grubVersion int
 
 var (
@@ -153,11 +158,21 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 		currentPath, _, _ = transform.String(t, currentPath)
 		if info.IsDir() {
 			if path.Dir(currentPath) == basedir && !isGrubSearchDir(path.Base(currentPath)) {
-				debug("Skip %s", currentPath)
+				debug("Skip %s: not significant", currentPath)
 				// skip irrelevant toplevel directories
 				return filepath.SkipDir
 			}
-			debug("Check %s", currentPath)
+			p, err := filepath.Rel(basedir, currentPath)
+			if err != nil {
+				return err
+			}
+			depth := len(strings.Split(p, string(os.PathSeparator)))
+			if depth > searchDepth {
+				debug("Skip %s, depth limit", currentPath)
+				// skip
+				return filepath.SkipDir
+			}
+			debug("Step into %s", currentPath)
 			// continue
 			return nil
 		}
