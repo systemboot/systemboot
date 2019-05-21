@@ -208,7 +208,6 @@ func ScanGrubConfigs(devices []storage.BlockDev, basedir string) []bootconfig.Bo
 			return nil
 		}
 		cfgname := info.Name()
-<<<<<<< HEAD
 		var ver grubVersion
 		switch cfgname {
 		case "grub.cfg":
@@ -222,27 +221,8 @@ func ScanGrubConfigs(devices []storage.BlockDev, basedir string) []bootconfig.Bo
 		data, err := ioutil.ReadFile(currentPath)
 		if err != nil {
 			return err
-=======
-		if cfgname == "grub.cfg" || cfgname == "grub2.cfg" {
-			var ver grubVersion
-			if cfgname == "grub.cfg" {
-				ver = grubV1
-			} else if cfgname == "grub2.cfg" {
-				ver = grubV2
-			}
-			// try parsing
-			log.Printf("Trying to read %s", currentPath)
-			grubcfg, errRead := ioutil.ReadFile(currentPath)
-			if errRead != nil {
-				log.Printf("cannot open %s: %v", currentPath, errRead)
-				// continue anyway
-				return nil
-			}
-			cfgs := ParseGrubCfg(ver, devices, string(grubcfg), basedir)
-			bootconfigs = append(bootconfigs, cfgs...)
->>>>>>> initial draft, support for vfat and ext4
 		}
-		cfgs := ParseGrubCfg(ver, string(data), basedir)
+		cfgs := ParseGrubCfg(ver, devices, string(data), basedir)
 		bootconfigs = append(bootconfigs, cfgs...)
 		return nil
 	})
