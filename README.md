@@ -58,9 +58,8 @@ The `uinit` program just wraps `netboot` and `localboot` in a forever-loop logic
 
 ```
 go get -u github.com/u-root/u-root
-go get -u github.com/safchain/ethtool
-go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot,checker}
-u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot,checker}
+go get -u github.com/systemboot/systemboot/{uinit,localboot,netboot}
+u-root -build=bb core github.com/systemboot/systemboot/{uinit,localboot,netboot}
 ```
 
 The initramfs will be located in `/tmp/initramfs_${platform}_${arch}.cpio`.

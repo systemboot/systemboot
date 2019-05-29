@@ -30,37 +30,37 @@ func checkInterface(ifname string) error {
 	checklist := []checker.Check{
 		checker.Check{
 			Description:  fmt.Sprintf("%s exists", ifname),
-			CheckFunName: "InterfaceExists",
-			CheckFunArgs: checker.CheckArgs{"ifname": ifname},
+			CheckerFuncName: "InterfaceExists",
+			CheckerFuncArgs: checker.CheckArgs{"ifname": ifname},
 			Remediations: []checker.Check{
 				{
-					CheckFunName: "InterfaceRemediate",
-					CheckFunArgs: checker.CheckArgs{"ifname": ifname},
+					CheckerFuncName: "InterfaceRemediate",
+					CheckerFuncArgs: checker.CheckArgs{"ifname": ifname},
 				},
 			},
 			StopOnFailure: true,
 		},
 		checker.Check{
 			Description:   fmt.Sprintf("%s link speed", ifname),
-			CheckFunName:  "LinkSpeed",
-			CheckFunArgs:  checker.CheckArgs{"ifname": ifname, "minSpeed": "100"},
+			CheckerFuncName:  "LinkSpeed",
+			CheckerFuncArgs:  checker.CheckArgs{"ifname": ifname, "minSpeed": "100"},
 			StopOnFailure: false},
 		checker.Check{
 			Description:   fmt.Sprintf("%s link autoneg", ifname),
-			CheckFunName:  "LinkAutoneg",
-			CheckFunArgs:  checker.CheckArgs{"ifname": ifname, "expected": "true"},
+			CheckerFuncName:  "LinkAutoneg",
+			CheckerFuncArgs:  checker.CheckArgs{"ifname": ifname, "expected": "true"},
 			StopOnFailure: false,
 		},
 		checker.Check{
 			Description:   fmt.Sprintf("%s has link-local", ifname),
-			CheckFunName:  "InterfaceHasLinkLocalAddress",
-			CheckFunArgs:  checker.CheckArgs{"ifname": ifname},
+			CheckerFuncName:  "InterfaceHasLinkLocalAddress",
+			CheckerFuncArgs:  checker.CheckArgs{"ifname": ifname},
 			StopOnFailure: true,
 		},
 		checker.Check{
 			Description:   fmt.Sprintf("%s has global addresses", ifname),
-			CheckFunName:  "InterfaceHasGlobalAddresses",
-			CheckFunArgs:  checker.CheckArgs{"ifname": ifname},
+			CheckerFuncName:  "InterfaceHasGlobalAddresses",
+			CheckerFuncArgs:  checker.CheckArgs{"ifname": ifname},
 			StopOnFailure: true,
 		},
 	}

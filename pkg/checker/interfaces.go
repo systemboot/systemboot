@@ -66,7 +66,7 @@ func LinkAutoneg(args CheckArgs) error {
 		return err
 	}
 	var want uint8
-	if expected == true {
+	if expected {
 		want = 1
 	}
 	if eth.Autoneg != want {

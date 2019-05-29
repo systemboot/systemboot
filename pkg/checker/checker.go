@@ -18,8 +18,8 @@ type CheckArgs map[string]string
 type Check struct {
 	Description string `json:"description"`
 
-	CheckFunName string    `json:"checkFun"`
-	CheckFunArgs CheckArgs `json:"checkArgs"`
+	CheckerFuncName string    `json:"checkFun"`
+	CheckerFuncArgs CheckArgs `json:"checkArgs"`
 
 	Remediations  []Check `json:"remediations"`
 	StopOnFailure bool    `json:"stopOnFailure"`
@@ -29,8 +29,8 @@ type Check struct {
 type CheckResult struct {
 	Description string `json:"description"`
 
-	CheckFunName string    `json:"checkFun"`
-	CheckFunArgs CheckArgs `json:"checkArgs"`
+	CheckerFuncName string    `json:"checkFun"`
+	CheckerFuncArgs CheckArgs `json:"checkArgs"`
 
 	Result             string        `json:"result"`
 	Error              string        `json:"error"`
@@ -45,24 +45,24 @@ func (check *Check) Run() CheckResult {
 
 func (check *Check) run(lvl int) CheckResult {
 	result := CheckResult{
-		Description:  check.Description,
-		CheckFunName: check.CheckFunName,
-		CheckFunArgs: check.CheckFunArgs,
-		Result:       ResultOK,
+		Description:     check.Description,
+		CheckerFuncName: check.CheckerFuncName,
+		CheckerFuncArgs: check.CheckerFuncArgs,
+		Result:          ResultOK,
 	}
 
-	fmt.Printf(indent(lvl)+"Running check '%s' (%s(%#v)).. ", check.Description, check.CheckFunName, check.CheckFunArgs)
+	fmt.Printf(indent(lvl)+"Running check '%s' (%s(%#v)).. ", check.Description, check.CheckerFuncName, check.CheckerFuncArgs)
 
 	// Call check function and get (possible) error
-	checkErr := Call(check.CheckFunName, check.CheckFunArgs)
+	checkErr := Call(check.CheckerFuncName, check.CheckerFuncArgs)
 
 	if checkErr == nil {
-		fmt.Printf(green("OK\n"))
+		fmt.Print(green("OK\n"))
 	} else {
 		result.Result = ResultError
 		result.Error = checkErr.Error()
 		result.StoppedOnFailure = check.StopOnFailure
-		fmt.Printf(red("failed: %s\n", result.Error))
+		fmt.Print(red("failed: %s\n", result.Error))
 	}
 
 	// If the check failed (and StopOnFailure is false), run OnFailure callbacks
