@@ -27,6 +27,7 @@ type BootEntry struct {
 var supportedBooterParsers = []func([]byte) (Booter, error){
 	NewNetBooter,
 	NewLocalBooter,
+	NewStBooter,
 }
 
 // GetBooterFor looks for a supported Booter implementation and returns it, if
