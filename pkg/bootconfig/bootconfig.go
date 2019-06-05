@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/systemboot/systemboot/pkg/crypto"
 	"github.com/u-root/u-root/pkg/kexec"
@@ -73,20 +72,20 @@ func (bc *BootConfig) Boot() error {
 			return err
 		}
 		// export trampoline code from the current binary.
-		p, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("Cannot find current executable path: %v", err)
-		}
-		trampoline, err := filepath.EvalSymlinks(p)
-		if err != nil {
-			return fmt.Errorf("Cannot eval symlinks for %v: %v", p, err)
-		}
+		// p, err := os.Executable()
+		// if err != nil {
+		// 	return fmt.Errorf("Cannot find current executable path: %v", err)
+		// }
+		// trampoline, err := filepath.EvalSymlinks(p)
+		// if err != nil {
+		// 	return fmt.Errorf("Cannot eval symlinks for %v: %v", p, err)
+		// }
 		// load multiboot kernel and modules
-		m := multiboot.New(bc.Multiboot, bc.MultibootArgs, trampoline, bc.Modules)
-		if err := m.Load(true); err != nil {
-			return fmt.Errorf("Load failed: %v", err)
-		}
-		if err := kexec.Load(m.EntryPoint, m.Segments(), 0); err != nil {
+		// m := multiboot.New(bc.Multiboot, bc.MultibootArgs, trampoline, bc.Modules)
+		// if err := m.Load(true); err != nil {
+		// 	return fmt.Errorf("Load failed: %v", err)
+		// }
+		if err := multiboot.Load(true, bc.Multiboot, bc.MultibootArgs, bc.Modules); err != nil {
 			return fmt.Errorf("kexec.Load() error: %v", err)
 		}
 	}
