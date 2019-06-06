@@ -18,27 +18,6 @@ const (
 	NvramVarsPCR uint32 = 9
 )
 
-// TryMeasureBootConfig measures bootconfig contents
-func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree, multiboot, multibootArgs string, modules []string) {
-	TPMInterface, err := tpm.NewTPM()
-	if err != nil {
-		log.Printf("Cannot open TPM: %v", err)
-		return
-	}
-	TryMeasureData(BootConfigPCR, []byte(name), name)
-	TryMeasureData(BootConfigPCR, []byte(kernel), kernel)
-	TryMeasureData(BootConfigPCR, []byte(initramfs), initramfs)
-	TryMeasureData(BootConfigPCR, []byte(kernelArgs), kernelArgs)
-	TryMeasureData(BootConfigPCR, []byte(deviceTree), deviceTree)
-	TryMeasureData(BootConfigPCR, []byte(multiboot), multiboot)
-	TryMeasureData(BootConfigPCR, []byte(multibootArgs), multibootArgs)
-	for i, module := range modules {
-		TryMeasureData(BootConfigPCR, []byte(module), module+string(i))
-	}
-	TryMeasureFiles(kernel, initramfs, deviceTree, multiboot)
-	TPMInterface.Close()
-}
-
 // TryMeasureData measures a byte array with additional information
 func TryMeasureData(pcr uint32, data []byte, info string) {
 	TPMInterface, err := tpm.NewTPM()
