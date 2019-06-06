@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"io/ioutil"
 	"log"
 	"os"
@@ -101,7 +102,7 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 					if str1 == "--set=root" {
 						log.Printf("Kernel seems to be on an other partitioin then the grub.cfg file")
 						for _, str2 := range sline {
-							if len(str2) == 36 && string(str2[8]) == "-" && string(str2[13]) == "-" && string(str2[18]) == "-" && string(str2[23]) == "-" {
+							if isValidFsUUID(str2) {
 								kernelFsUUID := str2
 								log.Printf("fs-uuid: %s", kernelFsUUID)
 								partitions, err := storage.PartitionsByFsUUID(devices, kernelFsUUID)
@@ -160,6 +161,15 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 		bootconfigs = append(bootconfigs, *cfg)
 	}
 	return bootconfigs
+}
+
+func isValidFsUUID(uuid string) bool {
+	for _, h := range strings.Split(uuid, "-") {
+		if _, err := hex.DecodeString(h); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func unquote(ver grubVersion, text string) string {
