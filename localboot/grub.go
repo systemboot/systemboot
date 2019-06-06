@@ -107,10 +107,8 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 							if isValidFsUUID(str2) {
 								kernelFsUUID := str2
 								log.Printf("fs-uuid: %s", kernelFsUUID)
-								partitions, err := storage.PartitionsByFsUUID(devices, kernelFsUUID)
-								if err != nil {
-									log.Printf("Unexpected error while looking up filesystem UUID: %v", err) // PartitionsByFsUUID does not return an error for now
-								} else if len(partitions) == 0 {
+								partitions := storage.PartitionsByFsUUID(devices, kernelFsUUID)
+								if len(partitions) == 0 {
 									log.Printf("WARNING: No partition found with filesystem UUID:'%s' to load kernel from!", kernelFsUUID) // TODO throw error ?
 									continue
 								}
@@ -158,6 +156,7 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 			}
 		}
 	}
+
 	// append last kernel config if it wasn't already
 	if inMenuEntry && cfg.IsValid() {
 		bootconfigs = append(bootconfigs, *cfg)

@@ -357,14 +357,14 @@ func PartitionsByGUID(devices []BlockDev, guid string) ([]BlockDev, error) {
 
 // PartitionsByFsUUID returns a list of BlockDev objects whose underlying
 // block device has a filesystem with the given UUID
-func PartitionsByFsUUID(devices []BlockDev, fsuuid string) ([]BlockDev, error) {
+func PartitionsByFsUUID(devices []BlockDev, fsuuid string) []BlockDev {
 	partitions := make([]BlockDev, 0)
 	for _, device := range devices {
 		if device.FsUUID == fsuuid {
 			partitions = append(partitions, device)
 		}
 	}
-	return partitions, nil
+	return partitions
 }
 
 // GetMountpointByDevice gets the mountpoint by given
