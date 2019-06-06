@@ -32,11 +32,30 @@ func (bc *BootConfig) IsValid() bool {
 	return (bc.Kernel != "" && bc.Multiboot == "") || (bc.Kernel == "" && bc.Multiboot != "")
 }
 
+// FileNames returns a slice of all filenames in the bootconfig.
+func (bc *BootConfig) fileNames() []string {
+	str := make([]string, 0)
+	str = append(str, bc.Kernel)
+	str = append(str, bc.Initramfs)
+	for _, module := range bc.Modules {
+		str = append(str, module)
+	}
+	return str
+}
+
+func (bc *BootConfig) bytestream() []byte {
+	b := bc.Name + bc.Kernel + bc.Initramfs + bc.KernelArgs + bc.DeviceTree + bc.Multiboot + bc.MultibootArgs
+	for _, module := range bc.Modules {
+		b = b + module
+	}
+	return []byte(b)
+}
+
 // Boot tries to boot the kernel with optional initramfs and command line
 // options. If a device-tree is specified, that will be used too
 func (bc *BootConfig) Boot() error {
-	data := bc.Name + bc.Kernel + bc.Initramfs + bc.KernelArgs + bc.DeviceTree + bc.Multiboot + bc.MultibootArgs
-	crypto.TryMeasureData(crypto.BootConfigPCR, []byte(data), "bootconfig")
+	crypto.TryMeasureData(crypto.BootConfigPCR, bc.bytestream(), "bootconfig")
+	crypto.TryMeasureFiles(bc.fileNames()...)
 	if bc.Kernel != "" {
 		kernel, err := os.Open(bc.Kernel)
 		if err != nil {
