@@ -84,6 +84,8 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 					// both kernel and initramfs
 					bootconfigs = append(bootconfigs, *cfg)
 				}
+				// reset kernelBaseDir
+				kernelBasedir = basedir
 			}
 			inMenuEntry = true
 			cfg = new(bootconfig.BootConfig)
@@ -107,13 +109,13 @@ func ParseGrubCfg(ver grubVersion, devices []storage.BlockDev, grubcfg string, b
 								log.Printf("fs-uuid: %s", kernelFsUUID)
 								partitions, err := storage.PartitionsByFsUUID(devices, kernelFsUUID)
 								if err != nil {
-									log.Printf("Unexpected error while looking up fs uuid: %v", err) // PartitionsByFsUUID does not return an error for now
+									log.Printf("Unexpected error while looking up filesystem UUID: %v", err) // PartitionsByFsUUID does not return an error for now
 								} else if len(partitions) == 0 {
-									log.Printf("WARNING: No partition found with filesystem uuid:'%s' to load kernel from!", kernelFsUUID) // TODO throw error ?
+									log.Printf("WARNING: No partition found with filesystem UUID:'%s' to load kernel from!", kernelFsUUID) // TODO throw error ?
 									continue
 								}
 								if len(partitions) > 1 {
-									log.Printf("WARNING: more than one partition found with the given file. Using the first one")
+									log.Printf("WARNING: more than one partition found with the given filesystem UUID. Using the first one")
 								}
 								dev := partitions[0]
 								kernelBasedir = path.Dir(kernelBasedir)
