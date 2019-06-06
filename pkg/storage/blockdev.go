@@ -174,21 +174,6 @@ func GetBlockStats() ([]BlockDev, error) {
 	return blockdevs, nil
 }
 
-// func getUUID(devpath string) (fsuuid string, err error) {
-// 	output, err := exec.Command("blkid", devpath).Output()
-// 	if err != nil {
-// 		return fsuuid, err
-// 	} else {
-// 		fields := strings.Fields(string(output))
-// 		for _, field := range fields {
-// 			if strings.Contains(field, "UUID=") && !strings.Contains(field, "PARTUUID=") {
-// 				fsuuid = strings.Trim(field, `UUID"=`)
-// 			}
-// 		}
-// 		return fsuuid, nil
-// 	}
-// }
-
 func getUUID(devpath string) (fsuuid string) {
 
 	fsuuid = tryVFAT(devpath)
