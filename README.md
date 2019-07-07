@@ -4,6 +4,13 @@
 [![codecov](https://codecov.io/gh/systemboot/systemboot/branch/master/graph/badge.svg)](https://codecov.io/gh/systemboot/systemboot)
 [![Go Report Card](https://goreportcard.com/badge/github.com/systemboot/systemboot)](https://goreportcard.com/report/github.com/systemboot/systemboot)
 
+> Note: systemboot [has been merged into u-root](https://github.com/u-root/u-root/pull/1255).
+> This repository is now read-only and staying only for historical reasons, but you should build
+> your bootloader entirely from u-root.
+> How? The CLI tools have been moved under [u-root/cmds/boot](https://github.com/u-root/u-root/tree/master/cmds/boot/){fbnetboot,localboot,uinit},
+> the libraries under [u-root/pkg/]{bootconfig,booter,checker,crypto,recovery,rng,storage,vpd}.
+> [u-root/tools/vpdbootmanager](https://github.com/u-root/u-root/tree/master/tools/vpdbootmanager) and
+> [u-root/examples/fixmynetboot](https://github.com/u-root/u-root/tree/master/examples/fixmynetboot).
 
 SystemBoot is a distribution for LinuxBoot to create a system firmware + bootloader. It is based on [u-root](https://github.com/u-root/u-root). The provided programs are:
 
