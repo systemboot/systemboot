@@ -90,7 +90,7 @@ following diagram:
 Systemboot is one of the parts of a bigger picture: running Linux as firmware.
 We call this [LinuxBoot](https://linuxboot.org), and it can be achieved in various
 ways. One of these is by combining [coreboot](https://coreboot.org), [Linux](https://kernel.org),
-[u-root](https://u-root.tk) and `systemboot`. Check out the instructions on the 
+[u-root](https://u-root.tk) and `systemboot`. Check out the instructions on the
 [LinuxBoot using coreboot, u-root and systemboot](https://github.com/linuxboot/book/tree/master/11.coreboot.u-root.systemboot)
 chapter of the [LinuxBoot Book](https://github.com/linuxboot/book).
 
